@@ -3,7 +3,8 @@ from .views import (
     LoginUserView, LogoutUserView, UserMeView, PasswordResetConfirmView,
     EmailVerificationView, ResendVerificationEmailView, UserListCreateAPIView,
     UserDetailAPIView, CreateUserView, NotificationListView, NotificationDetailView,
-    MarkAllNotificationsReadView, DeleteAllNotificationsView, CreateWelcomeNotificationView
+    MarkAllNotificationsReadView, DeleteAllNotificationsView, CreateWelcomeNotificationView,
+    FirstTimeLoginNotificationView, CreateTestUserView
 )
 
 urlpatterns = [
@@ -21,6 +22,7 @@ urlpatterns = [
     path('users/', UserListCreateAPIView.as_view(), name='user-list'),
     path('users/<int:pk>/', UserDetailAPIView.as_view(), name='user-detail'),
     path('create-user/', CreateUserView.as_view(), name='create-user'),
+    path('create-test-user/', CreateTestUserView.as_view(), name='create-test-user'),
     
     # Notification URLs
     path('notifications/', NotificationListView.as_view(), name='notification-list'),
@@ -28,4 +30,5 @@ urlpatterns = [
     path('notifications/mark-all-read/', MarkAllNotificationsReadView.as_view(), name='mark-all-notifications-read'),
     path('notifications/delete-all/', DeleteAllNotificationsView.as_view(), name='delete-all-notifications'),
     path('notifications/create-welcome/', CreateWelcomeNotificationView.as_view(), name='create-welcome-notification'),
+    path('notifications/first-time-login/', FirstTimeLoginNotificationView.as_view(), name='first-time-login-notification'),
 ]

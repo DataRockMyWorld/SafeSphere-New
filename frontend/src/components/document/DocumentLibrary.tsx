@@ -34,6 +34,11 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
+  Grid,
+  CardActionArea,
+  CardActions,
+  Divider,
+  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -46,6 +51,9 @@ import {
   Visibility as ViewIcon,
   History as HistoryIcon,
   Download as DownloadIcon,
+  Folder as FolderIcon,
+  ArrowBack as ArrowBackIcon,
+  FolderOpen as FolderOpenIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import axiosInstance, { uploadFile } from '../../utils/axiosInstance';
@@ -68,12 +76,12 @@ interface Document {
 }
 
 const DOCUMENT_TYPES = [
-  { value: 'POLICY', label: 'Policy' },
-  { value: 'SYSTEM DOCUMENT', label: 'System Document' },
-  { value: 'PROCEDURE', label: 'Procedure' },
-  { value: 'FORM', label: 'Form' },
-  { value: 'SSOW', label: 'SSOW' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'POLICY', label: 'Policy', icon: '📋' },
+  { value: 'SYSTEM DOCUMENT', label: 'System Document', icon: '📄' },
+  { value: 'PROCEDURE', label: 'Procedure', icon: '📝' },
+  { value: 'FORM', label: 'Form', icon: '📋' },
+  { value: 'SSOW', label: 'SSOW', icon: '🛡️' },
+  { value: 'OTHER', label: 'Other', icon: '📁' },
 ];
 
 const DocumentLibrary: React.FC = () => {
@@ -95,12 +103,19 @@ const DocumentLibrary: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [categoryMenuAnchor, setCategoryMenuAnchor] = useState<null | HTMLElement>(null);
+  const [viewMode, setViewMode] = useState<'folders' | 'table'>('folders');
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
 
   // Calculate document counts by category
   const categoryCount = documents.reduce((acc, doc) => {
     acc[doc.document_type] = (acc[doc.document_type] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  // Filter documents by selected folder
+  const filteredDocuments = selectedFolder 
+    ? documents.filter(doc => doc.document_type === selectedFolder)
+    : documents;
 
   // Debounced search effect
   useEffect(() => {
@@ -178,6 +193,49 @@ const DocumentLibrary: React.FC = () => {
     }
   };
 
+  const handleDownload = async (doc: Document) => {
+    try {
+      if (!doc.file_url) {
+        setError('No file available for download');
+        return;
+      }
+
+      // Create a temporary link element to trigger download
+      const link = document.createElement('a');
+      link.href = doc.file_url;
+      link.download = doc.title || 'document';
+      link.target = '_blank';
+      
+      // Add authorization header if needed
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        // For relative URLs, we need to make an authenticated request
+        if (doc.file_url.startsWith('/')) {
+          const response = await axiosInstance.get(doc.file_url, {
+            responseType: 'blob',
+          });
+          
+          // Create blob URL
+          const blob = new Blob([response.data]);
+          const url = window.URL.createObjectURL(blob);
+          link.href = url;
+        }
+      }
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up blob URL if created
+      if (link.href.startsWith('blob:')) {
+        setTimeout(() => window.URL.revokeObjectURL(link.href), 100);
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      setError('Failed to download document. Please try again.');
+    }
+  };
+
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -190,6 +248,18 @@ const DocumentLibrary: React.FC = () => {
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
     setCategoryMenuAnchor(null);
+  };
+
+  const handleFolderClick = (documentType: string) => {
+    setSelectedFolder(documentType);
+    setViewMode('table');
+    setPage(0); // Reset pagination when entering folder
+  };
+
+  const handleBackToFolders = () => {
+    setViewMode('folders');
+    setSelectedFolder('');
+    setPage(0);
   };
 
   const getStatusColor = (status: string) => {
@@ -212,13 +282,33 @@ const DocumentLibrary: React.FC = () => {
     return DOCUMENT_TYPES.find(type => type.value === selectedCategory)?.label || selectedCategory;
   };
 
+  const getFolderIcon = (documentType: string) => {
+    const type = DOCUMENT_TYPES.find(t => t.value === documentType);
+    return type?.icon || '📁';
+  };
+
+  const getFolderTitle = (documentType: string) => {
+    const type = DOCUMENT_TYPES.find(t => t.value === documentType);
+    return type?.label || documentType;
+  };
+
   return (
     <Box sx={{ p: 3, height: 'calc(100vh - 64px)', overflow: 'auto' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-          Document Library
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {viewMode === 'table' && (
+            <IconButton
+              onClick={handleBackToFolders}
+              sx={{ color: theme.palette.primary.main }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+          )}
+          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+            {viewMode === 'folders' ? 'Document Library' : `${getFolderTitle(selectedFolder)} Documents`}
+          </Typography>
+        </Box>
         {user?.position === 'HSSE MANAGER' && (
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
@@ -313,12 +403,54 @@ const DocumentLibrary: React.FC = () => {
         </Alert>
       )}
 
-      {/* Documents Table */}
+      {/* Content */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
         </Box>
+      ) : viewMode === 'folders' ? (
+        // Folder View
+        <Grid container spacing={3}>
+          {DOCUMENT_TYPES.map((type) => (
+            <Grid item xs={12} sm={6} md={4} key={type.value}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[8],
+                  },
+                }}
+              >
+                <CardActionArea
+                  onClick={() => handleFolderClick(type.value)}
+                  sx={{ height: '100%', p: 2 }}
+                >
+                  <CardContent sx={{ textAlign: 'center', p: 0 }}>
+                    <Typography variant="h1" sx={{ fontSize: '3rem', mb: 1 }}>
+                      {type.icon}
+                    </Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      {type.label}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {categoryCount[type.value] || 0} documents
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <FolderOpenIcon sx={{ color: theme.palette.primary.main, mr: 1 }} />
+                      <Typography variant="body2" color="primary">
+                        Click to view
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       ) : (
+        // Table View
         <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
           <Table>
             <TableHead>
@@ -333,7 +465,7 @@ const DocumentLibrary: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {documents
+              {filteredDocuments
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((document) => (
                   <TableRow key={document.id} hover>
@@ -370,45 +502,53 @@ const DocumentLibrary: React.FC = () => {
                       {new Date(document.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={() => window.open(document.file_url, '_blank')}
-                        sx={{ color: theme.palette.primary.main }}
-                      >
-                        <DownloadIcon />
-                      </IconButton>
-                      {/* Show Edit button only for HSSE Manager on DRAFT documents */}
-                      {document.status === 'DRAFT' && user?.position === 'HSSE MANAGER' && (
+                      <Tooltip title="Download Document">
                         <IconButton
                           size="small"
-                          onClick={() => navigate(`/document-management/library/${document.id}/edit`)}
-                          sx={{ color: theme.palette.warning.main }}
+                          onClick={() => handleDownload(document)}
+                          sx={{ color: theme.palette.primary.main }}
                         >
-                          <EditIcon />
+                          <DownloadIcon />
                         </IconButton>
+                      </Tooltip>
+                      {/* Show Edit button only for HSSE Manager on DRAFT documents */}
+                      {document.status === 'DRAFT' && user?.position === 'HSSE MANAGER' && (
+                        <Tooltip title="Edit Document">
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/document-management/library/${document.id}/edit`)}
+                            sx={{ color: theme.palette.warning.main }}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
                       )}
                       {/* Show Request Change button for non-HSSE Manager users */}
                       {user?.position !== 'HSSE MANAGER' && (
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/document-management/change-request/${document.id}`)}
-                          sx={{ color: theme.palette.info.main }}
-                        >
-                          <EditIcon />
-                        </IconButton>
+                        <Tooltip title="Request Changes">
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/document-management/change-request/${document.id}`)}
+                            sx={{ color: theme.palette.info.main }}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
                       )}
                       {user?.role === 'ADMIN' && (
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this document?')) {
-                              axiosInstance.delete(`/documents/${document.id}/`).then(fetchDocuments);
-                            }
-                          }}
-                          sx={{ color: theme.palette.error.main }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
+                        <Tooltip title="Delete Document">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete this document?')) {
+                                axiosInstance.delete(`/documents/${document.id}/`).then(fetchDocuments);
+                              }
+                            }}
+                            sx={{ color: theme.palette.error.main }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
                       )}
                     </TableCell>
                   </TableRow>
@@ -418,7 +558,7 @@ const DocumentLibrary: React.FC = () => {
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={documents.length}
+            count={filteredDocuments.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={handleChangePage}

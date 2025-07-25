@@ -16,6 +16,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
         ('ADMIN', 'Admin'),
         ('MANAGER', 'Manager'),
+        ('SUPERVISOR', 'Supervisor'),
         ('EMPLOYEE', 'Employee'),
     )
     
@@ -25,6 +26,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('FINANCE MANAGER', 'Finance Manager'),
         ('HSSE MANAGER', 'HSSE Manager'),
         ('TECHNICIAN', 'Technician'),
+        ('GENERAL STAFF', 'General Staff'),
     )
     
     DEPARTMENT_CHOICES = (
@@ -126,6 +128,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         
         return True
 
+    def should_receive_welcome_notification(self):
+        """Check if user should receive a welcome notification (first-time user)."""
+        # Check if user has any existing welcome notifications
+        return not self.notifications.filter(notification_type='WELCOME').exists()
+
 class Notification(models.Model):
     """Notification model for user notifications."""
     NOTIFICATION_TYPES = (
@@ -210,4 +217,3 @@ Please review and take action on this change request."""
             notifications.append(notification)
         
         return notifications
-    

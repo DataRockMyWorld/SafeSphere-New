@@ -30,6 +30,7 @@ import {
   Notifications as NotificationIcon,
   Settings as SettingsIcon,
   ArrowForward as ArrowIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
@@ -47,123 +48,51 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon, onC
   
   return (
     <Card
-      onClick={onClick}
       sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        transition: 'transform 0.2s, box-shadow 0.2s',
         cursor: 'pointer',
-        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-        position: 'relative',
-        overflow: 'hidden',
-        background: 'white',
-        border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
         '&:hover': {
-          transform: 'translateY(-8px)',
-          boxShadow: '0 16px 32px rgba(0, 0, 0, 0.12)',
-          '& .icon-wrapper': {
-            background: gradient,
-            transform: 'scale(1.1) rotate(5deg)',
-            '& svg': {
-              color: '#ffffff',
-              transform: 'scale(1.05)',
+          transform: 'translateY(-4px)',
+          boxShadow: theme.shadows[8],
+          backgroundColor: alpha(theme.palette.primary.main, 0.04),
             },
-          },
-          '& .arrow-icon': {
-            transform: 'translateX(6px)',
-            opacity: 1,
-          },
-        },
       }}
+      onClick={onClick}
     >
-      <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box
-          className="icon-wrapper"
+      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', p: 3 }}>
+        <IconButton
           sx={{
-            width: 60,
-            height: 60,
-            borderRadius: '18px',
-            backgroundColor: alpha(color, 0.1),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            backgroundColor: alpha(theme.palette.primary.main, 0.1),
+            width: 64,
+            height: 64,
             mb: 2,
-            transition: 'all 0.4s ease',
-            alignSelf: 'flex-start',
-            '& svg': {
-              fontSize: 28,
-              color: color,
-              transition: 'all 0.4s ease',
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.2),
             },
           }}
         >
           {icon}
-        </Box>
-        
-        <Typography
-          variant="h6"
-          component="h2"
-          gutterBottom
-          sx={{
-            fontWeight: 700,
-            color: theme.palette.text.primary,
-            mb: 1.5,
-            lineHeight: 1.3,
-            fontSize: '1.1rem',
-          }}
-        >
+        </IconButton>
+        <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, fontFamily: '"Inter", sans-serif' }}>
           {title}
         </Typography>
-        
-        <Typography
-          variant="body2"
-          sx={{
-            color: theme.palette.text.secondary,
-            lineHeight: 1.5,
-            mb: 2.5,
-            flex: 1,
-            fontSize: '0.875rem',
-          }}
-        >
+        <Typography variant="body2" color="text.secondary" sx={{ fontFamily: '"Inter", sans-serif' }}>
           {description}
         </Typography>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Chip
-            label="Access Module"
-            size="small"
-            sx={{
-              backgroundColor: alpha(color, 0.1),
-              color: color,
-              fontWeight: 600,
-              fontSize: '0.7rem',
-              height: 24,
-            }}
-          />
-          <IconButton
-            className="arrow-icon"
-            size="small"
-            sx={{
-              color: color,
-              opacity: 0.7,
-              transition: 'all 0.3s ease',
-              width: 32,
-              height: 32,
-              '&:hover': {
-                backgroundColor: alpha(color, 0.1),
-              },
-            }}
-          >
-            <ArrowIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Box>
       </CardContent>
     </Card>
   );
 };
 
 const Home: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  // Debug log for user object
+  React.useEffect(() => {
+    console.log('DEBUG: user object in Home:', user);
+  }, [user]);
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -231,6 +160,9 @@ const Home: React.FC = () => {
       color: theme.palette.grey[600],
     },
   ];
+
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+  const adminUrl = `${backendUrl.replace(/\/$/, '')}/admin/`;
 
   return (
     <Box
@@ -335,6 +267,55 @@ const Home: React.FC = () => {
                 </Box>
               ))}
             </Box>
+            {/* Django Admin Panel Link for Superusers */}
+            {user?.is_superuser && (
+              <Box sx={{ mt: 6, display: 'flex', justifyContent: 'center' }}>
+                <Card
+                  sx={{
+                    minWidth: 320,
+                    maxWidth: 400,
+                    p: 3,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    boxShadow: 6,
+                    borderRadius: 3,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
+                  }}
+                >
+                  <AdminPanelSettingsIcon sx={{ fontSize: 48, color: theme.palette.primary.main, mb: 1 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: theme.palette.primary.dark }}>
+                    Django Admin Panel
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mb: 2, textAlign: 'center' }}>
+                    Manage all backend data, categories, users, and more with the full power of Django Admin.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    href={adminUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      px: 4,
+                      py: 1.5,
+                      fontWeight: 600,
+                      fontSize: '1.1rem',
+                      borderRadius: 2,
+                      boxShadow: 3,
+                      background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                      '&:hover': {
+                        background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
+                        transform: 'translateY(-2px)',
+                      },
+                      transition: 'all 0.3s',
+                    }}
+                  >
+                    Go to Admin Panel
+                  </Button>
+                </Card>
+              </Box>
+            )}
           </Box>
         ) : (
           <Box sx={{ py: 8 }}>
@@ -343,7 +324,7 @@ const Home: React.FC = () => {
               <Typography
                 variant="h1"
                 sx={{
-                  fontWeight: 900,
+                  fontWeight: 800,
                   fontSize: { xs: '3rem', md: '4.5rem' },
                   mb: 3,
                   background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
@@ -352,6 +333,8 @@ const Home: React.FC = () => {
                   WebkitTextFillColor: 'transparent',
                   textAlign: 'center',
                   lineHeight: 1.2,
+                  fontFamily: '"Inter", sans-serif',
+                  letterSpacing: '-0.025em',
                 }}
               >
                 SafeSphere
@@ -365,6 +348,8 @@ const Home: React.FC = () => {
                   lineHeight: 1.6,
                   mb: 4,
                   fontWeight: 400,
+                  fontFamily: '"Inter", sans-serif',
+                  letterSpacing: '0.01em',
                 }}
               >
                 Comprehensive Health, Safety, Security, and Environment Management System
@@ -388,6 +373,7 @@ const Home: React.FC = () => {
                     py: 2,
                     fontSize: '1.2rem',
                     fontWeight: 600,
+                    fontFamily: '"Inter", sans-serif',
                     background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                     boxShadow: '0 8px 25px rgba(0, 82, 212, 0.3)',
                     '&:hover': {
@@ -409,6 +395,7 @@ const Home: React.FC = () => {
                     py: 2,
                     fontSize: '1.2rem',
                     fontWeight: 600,
+                    fontFamily: '"Inter", sans-serif',
                     borderColor: theme.palette.primary.main,
                     color: theme.palette.primary.main,
                     borderWidth: 2,

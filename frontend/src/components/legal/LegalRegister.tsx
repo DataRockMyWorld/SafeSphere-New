@@ -4,6 +4,8 @@ import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/ico
 import axiosInstance from '../../utils/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
 
+const PAGE_SIZE = 10;
+
 const DEPARTMENTS = [
   { value: 'OPERATIONS', label: 'Operations' },
   { value: 'MARKETING', label: 'Marketing' },
@@ -41,23 +43,9 @@ const COUNTRIES = [
 ];
 
 // Common categories for dropdown
-const CATEGORIES = [
-  { value: 'ENVIRONMENTAL', label: 'Environmental' },
-  { value: 'HEALTH_SAFETY', label: 'Health & Safety' },
-  { value: 'QUALITY', label: 'Quality Management' },
-  { value: 'FINANCIAL', label: 'Financial' },
-  { value: 'LABOR', label: 'Labor Law' },
-  { value: 'TAX', label: 'Taxation' },
-  { value: 'CORPORATE', label: 'Corporate Law' },
-  { value: 'CONTRACT', label: 'Contract Law' },
-  { value: 'INTELLECTUAL_PROPERTY', label: 'Intellectual Property' },
-  { value: 'DATA_PROTECTION', label: 'Data Protection' },
-  { value: 'COMPETITION', label: 'Competition Law' },
-  { value: 'OTHER', label: 'Other' },
-];
+// const CATEGORIES = [ ... ];
 
-const PAGE_SIZE = 10;
-
+interface LawCategory { id: number; name: string; }
 interface Position { id: number; name: string; }
 interface LawResource { id: number; title: string; }
 interface LegalRegisterEntry {
@@ -83,6 +71,7 @@ const LegalRegister: React.FC = () => {
   const [entries, setEntries] = useState<LegalRegisterEntry[]>([]);
   const [laws, setLaws] = useState<LawResource[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [categories, setCategories] = useState<LawCategory[]>([]); // <-- Add this
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [department, setDepartment] = useState('');
@@ -103,6 +92,7 @@ const LegalRegister: React.FC = () => {
   useEffect(() => {
     axiosInstance.get('/legals/resources/').then(res => setLaws(res.data.results || res.data)).catch(() => setLaws([]));
     axiosInstance.get('/legals/positions/').then(res => setPositions(res.data.results || res.data)).catch(() => setPositions([]));
+    axiosInstance.get('/legals/categories/').then(res => setCategories(res.data)).catch(() => setCategories([])); // <-- Fetch categories
   }, []);
 
   const fetchEntries = () => {
@@ -205,8 +195,8 @@ const LegalRegister: React.FC = () => {
             <FormControl fullWidth>
               <InputLabel>Category</InputLabel>
               <Select name="category" value={form.category || ''} label="Category" onChange={handleChange} required>
-                {CATEGORIES.map(cat => (
-                  <MenuItem key={cat.value} value={cat.value}>{cat.label}</MenuItem>
+                {categories.map(cat => (
+                  <MenuItem key={cat.id} value={cat.name}>{cat.name}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -316,48 +306,135 @@ const LegalRegister: React.FC = () => {
         </FormControl>
         <Button variant="contained" onClick={fetchEntries} sx={{ minWidth: 100 }}>Filter</Button>
       </Box>
-      <Paper>
+      <Paper sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderRadius: 2 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
         ) : (
           <TableContainer>
-            <Table>
+            <Table sx={{ minWidth: 650 }}>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Title</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Country</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Category</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Owner Department</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Compliance Status</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Last Updated</TableCell>
-                  {isHSSEManager && <TableCell sx={{ fontSize: '0.92rem' }}>Actions</TableCell>}
+                <TableRow sx={{ 
+                  backgroundColor: 'primary.main',
+                  '& th': {
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    padding: '12px 8px',
+                    borderBottom: '2px solid',
+                    borderBottomColor: 'primary.dark',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }
+                }}>
+                  <TableCell>Title</TableCell>
+                  <TableCell>Country</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Owner Department</TableCell>
+                  <TableCell>Compliance Status</TableCell>
+                  <TableCell>Last Updated</TableCell>
+                  {isHSSEManager && <TableCell>Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {entries.map(entry => (
-                  <TableRow key={entry.id} hover onClick={() => {
-                    setSelectedEntry(entry);
-                    setModalOpen(true);
-                  }} style={{ cursor: 'pointer' }}>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{entry.title}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{COUNTRIES.find(c => c.value === entry.country)?.label || entry.country}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{CATEGORIES.find(c => c.value === entry.category)?.label || entry.category}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{DEPARTMENTS.find(d => d.value === entry.owner_department)?.label || entry.owner_department}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{COMPLIANCE_STATUS.find(c => c.value === entry.compliance_status)?.label || entry.compliance_status}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{entry.last_updated ? new Date(entry.last_updated).toLocaleDateString() : ''}</TableCell>
+                  <TableRow 
+                    key={entry.id} 
+                    hover 
+                    onClick={() => {
+                      setSelectedEntry(entry);
+                      setModalOpen(true);
+                    }} 
+                    style={{ cursor: 'pointer' }}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                        transition: 'background-color 0.2s ease'
+                      },
+                      '& td': {
+                        padding: '8px',
+                        fontSize: '0.85rem',
+                        borderBottom: '1px solid #e0e0e0',
+                        verticalAlign: 'middle'
+                      },
+                      '&:nth-of-type(even)': {
+                        backgroundColor: '#fafafa'
+                      }
+                    }}
+                  >
+                    <TableCell sx={{ fontWeight: 500, color: 'text.primary' }}>{entry.title}</TableCell>
+                    <TableCell>{COUNTRIES.find(c => c.value === entry.country)?.label || entry.country}</TableCell>
+                    <TableCell>{categories.find(c => c.name === entry.category)?.name || entry.category}</TableCell>
+                    <TableCell>{DEPARTMENTS.find(d => d.value === entry.owner_department)?.label || entry.owner_department}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={COMPLIANCE_STATUS.find(c => c.value === entry.compliance_status)?.label || entry.compliance_status} 
+                        color={entry.compliance_status === 'compliant' ? 'success' : entry.compliance_status === 'non-compliant' ? 'error' : 'warning'} 
+                        size="small"
+                        sx={{ 
+                          fontSize: '0.75rem',
+                          fontWeight: 600
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>{entry.last_updated ? new Date(entry.last_updated).toLocaleDateString() : ''}</TableCell>
                     {isHSSEManager && (
-                      <TableCell sx={{ fontSize: '0.92rem' }}>
-                        <IconButton onClick={e => { e.stopPropagation(); setFormMode('edit'); setFormState(entry); setSelectedEntry(entry); setFormModalOpen(true); }}><EditIcon fontSize="small" /></IconButton>
-                        <IconButton onClick={e => { e.stopPropagation(); setDeleteConfirm(entry); }}><DeleteIcon fontSize="small" /></IconButton>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <IconButton 
+                            onClick={e => { 
+                              e.stopPropagation(); 
+                              setFormMode('edit'); 
+                              setFormState(entry); 
+                              setSelectedEntry(entry); 
+                              setFormModalOpen(true); 
+                            }}
+                            size="small"
+                            sx={{ 
+                              color: 'primary.main',
+                              '&:hover': {
+                                backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                                transform: 'scale(1.1)',
+                                transition: 'all 0.2s ease'
+                              }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            onClick={e => { e.stopPropagation(); setDeleteConfirm(entry); }}
+                            size="small"
+                            sx={{ 
+                              color: 'error.main',
+                              '&:hover': {
+                                backgroundColor: 'rgba(211, 47, 47, 0.1)',
+                                transform: 'scale(1.1)',
+                                transition: 'all 0.2s ease'
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     )}
                   </TableRow>
                 ))}
                 {entries.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={isHSSEManager ? 7 : 6} align="center" sx={{ fontSize: '0.92rem' }}>No entries found.</TableCell>
+                    <TableCell 
+                      colSpan={isHSSEManager ? 7 : 6} 
+                      align="center" 
+                      sx={{ 
+                        fontSize: '0.85rem',
+                        color: 'text.secondary',
+                        padding: '32px 16px',
+                        fontStyle: 'italic'
+                      }}
+                    >
+                      No entries found.
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -388,7 +465,7 @@ const LegalRegister: React.FC = () => {
                 </Box>
                 <Box>
                   <Typography variant="body2" color="textSecondary" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>Category</Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.92rem' }}>{CATEGORIES.find(c => c.value === selectedEntry.category)?.label || selectedEntry.category}</Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.92rem' }}>{categories.find(c => c.name === selectedEntry.category)?.name || selectedEntry.category}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="body2" color="textSecondary" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>Owner Department</Typography>

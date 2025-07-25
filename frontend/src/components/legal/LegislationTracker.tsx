@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Button, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Pagination, Alert, Chip, IconButton, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Button, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Pagination, Alert, Chip, IconButton, FormControl, InputLabel, Select, MenuItem, Tooltip } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, PictureAsPdf as PdfIcon } from '@mui/icons-material';
 import axiosInstance from '../../utils/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
@@ -54,16 +54,30 @@ const LegislationTrackerComponent: React.FC = () => {
         setTrackers(res.data.results || res.data);
         setTotalPages(res.data.total_pages || 1);
       })
-      .catch(() => setTrackers([]))
+      .catch((error) => {
+        console.error('Error fetching trackers:', error);
+        setTrackers([]);
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchTrackers(); }, [page]);
 
   // Create Tracker
-  const handleCreate = (data: FormData) => {
+  const handleCreate = (data: Partial<LegislationTracker> & { evidenceFile?: File }) => {
     setLoading(true);
-    axiosInstance.post('/legals/legislation-trackers/', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const formData = new FormData();
+    
+    // Add all form fields to FormData
+    Object.keys(data).forEach(key => {
+      if (key === 'evidenceFile' && data.evidenceFile) {
+        formData.append('evidence', data.evidenceFile);
+      } else if (key !== 'evidenceFile' && data[key] !== undefined) {
+        formData.append(key, data[key] as string);
+      }
+    });
+
+    axiosInstance.post('/legals/legislation-trackers/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
       .then(() => {
         setSnackbar({ open: true, message: 'Tracker created successfully!' });
         setFormModalOpen(false);
@@ -74,10 +88,21 @@ const LegislationTrackerComponent: React.FC = () => {
   };
 
   // Edit Tracker
-  const handleEdit = (data: FormData) => {
+  const handleEdit = (data: Partial<LegislationTracker> & { evidenceFile?: File }) => {
     if (!selectedTracker) return;
     setLoading(true);
-    axiosInstance.put(`/legals/legislation-trackers/${selectedTracker.id}/`, data, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const formData = new FormData();
+    
+    // Add all form fields to FormData
+    Object.keys(data).forEach(key => {
+      if (key === 'evidenceFile' && data.evidenceFile) {
+        formData.append('evidence', data.evidenceFile);
+      } else if (key !== 'evidenceFile' && data[key] !== undefined) {
+        formData.append(key, data[key] as string);
+      }
+    });
+
+    axiosInstance.put(`/legals/legislation-trackers/${selectedTracker.id}/`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
       .then(() => {
         setSnackbar({ open: true, message: 'Tracker updated successfully!' });
         setFormModalOpen(false);
@@ -112,7 +137,11 @@ const LegislationTrackerComponent: React.FC = () => {
     };
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      onSubmit(form);
+      const submitData = { ...form };
+      if (evidenceFile) {
+        submitData.evidenceFile = evidenceFile;
+      }
+      onSubmit(submitData);
     };
     return (
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -181,72 +210,183 @@ const LegislationTrackerComponent: React.FC = () => {
           New Tracker
         </Button>
       )}
-      <Paper>
+      <Paper sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderRadius: 2 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
         ) : (
           <TableContainer>
-            <Table>
+            <Table sx={{ minWidth: 650 }}>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Permit</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Issuing Authority</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>License Number</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Unit</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Date of Issue</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Expiring Date</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Days Left</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Status</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Action Taken</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Evidence</TableCell>
-                  {isHSSEManager && <TableCell sx={{ fontSize: '0.92rem' }}>Actions</TableCell>}
+                <TableRow sx={{ 
+                  backgroundColor: 'primary.main',
+                  '& th': {
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    padding: '12px 8px',
+                    borderBottom: '2px solid',
+                    borderBottomColor: 'primary.dark',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }
+                }}>
+                  <TableCell>Permit</TableCell>
+                  <TableCell>Issuing Authority</TableCell>
+                  <TableCell>License Number</TableCell>
+                  <TableCell>Unit</TableCell>
+                  <TableCell>Date of Issue</TableCell>
+                  <TableCell>Expiring Date</TableCell>
+                  <TableCell>Days Left</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Action Taken</TableCell>
+                  <TableCell>Evidence</TableCell>
+                  {isHSSEManager && <TableCell>Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {trackers.map(tracker => (
-                  <TableRow key={tracker.id} hover onClick={() => {
-                    setSelectedTracker(tracker);
-                    setModalOpen(true);
-                  }} style={{ cursor: 'pointer' }}>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{tracker.permit}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{tracker.issuing_authority}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{tracker.license_number}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{tracker.unit}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{tracker.date_of_issue}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{tracker.expiring_date}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{tracker.days_left}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>
-                      <Chip label={STATUS_CHOICES.find(s => s.value === tracker.status)?.label || tracker.status} color={statusColor(tracker.status)} size="small" />
+                  <TableRow 
+                    key={tracker.id} 
+                    hover 
+                    onClick={() => {
+                      setSelectedTracker(tracker);
+                      setModalOpen(true);
+                    }} 
+                    style={{ cursor: 'pointer' }}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                        transition: 'background-color 0.2s ease'
+                      },
+                      '& td': {
+                        padding: '8px',
+                        fontSize: '0.85rem',
+                        borderBottom: '1px solid #e0e0e0',
+                        verticalAlign: 'middle'
+                      },
+                      '&:nth-of-type(even)': {
+                        backgroundColor: '#fafafa'
+                      }
+                    }}
+                  >
+                    <TableCell sx={{ fontWeight: 500, color: 'text.primary' }}>{tracker.permit}</TableCell>
+                    <TableCell>{tracker.issuing_authority}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{tracker.license_number}</TableCell>
+                    <TableCell>{tracker.unit}</TableCell>
+                    <TableCell>{tracker.date_of_issue}</TableCell>
+                    <TableCell>{tracker.expiring_date}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={tracker.days_left} 
+                        size="small" 
+                        color={tracker.days_left <= 30 ? 'error' : tracker.days_left <= 90 ? 'warning' : 'success'}
+                        sx={{ 
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          minWidth: '40px'
+                        }}
+                      />
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{tracker.action_taken}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>
+                    <TableCell>
+                      <Chip 
+                        label={STATUS_CHOICES.find(s => s.value === tracker.status)?.label || tracker.status} 
+                        color={statusColor(tracker.status)} 
+                        size="small"
+                        sx={{ 
+                          fontSize: '0.75rem',
+                          fontWeight: 600
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {tracker.action_taken}
+                    </TableCell>
+                    <TableCell>
                       {tracker.evidence_url ? (
-                        <IconButton 
-                          href={tracker.evidence_url} 
-                          target="_blank" 
-                          rel="noopener" 
-                          size="small" 
-                          sx={{ minWidth: 0, p: 0.5, color: 'error.main' }}
-                        >
-                          <PdfIcon fontSize="small" />
-                        </IconButton>
+                        <Tooltip title="View Evidence PDF">
+                          <IconButton 
+                            href={tracker.evidence_url} 
+                            target="_blank" 
+                            rel="noopener" 
+                            size="small" 
+                            sx={{ 
+                              minWidth: 0, 
+                              p: 0.5, 
+                              color: 'error.main',
+                              '&:hover': {
+                                backgroundColor: 'rgba(211, 47, 47, 0.1)',
+                                transform: 'scale(1.1)',
+                                transition: 'all 0.2s ease'
+                              }
+                            }}
+                          >
+                            <PdfIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       ) : (
-                        <Typography variant="caption" color="textSecondary">No Evidence</Typography>
+                        <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.75rem' }}>
+                          No Evidence
+                        </Typography>
                       )}
                     </TableCell>
                     {isHSSEManager && (
-                      <TableCell sx={{ fontSize: '0.92rem' }}>
-                        <IconButton onClick={e => { e.stopPropagation(); setFormMode('edit'); setFormState(tracker); setSelectedTracker(tracker); setFormModalOpen(true); }}><EditIcon fontSize="small" /></IconButton>
-                        <IconButton onClick={e => { e.stopPropagation(); setDeleteConfirm(tracker); }}><DeleteIcon fontSize="small" /></IconButton>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <IconButton 
+                            onClick={e => { 
+                              e.stopPropagation(); 
+                              setFormMode('edit'); 
+                              setFormState(tracker); 
+                              setSelectedTracker(tracker); 
+                              setFormModalOpen(true); 
+                            }}
+                            size="small"
+                            sx={{ 
+                              color: 'primary.main',
+                              '&:hover': {
+                                backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                                transform: 'scale(1.1)',
+                                transition: 'all 0.2s ease'
+                              }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            onClick={e => { e.stopPropagation(); setDeleteConfirm(tracker); }}
+                            size="small"
+                            sx={{ 
+                              color: 'error.main',
+                              '&:hover': {
+                                backgroundColor: 'rgba(211, 47, 47, 0.1)',
+                                transform: 'scale(1.1)',
+                                transition: 'all 0.2s ease'
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     )}
                   </TableRow>
                 ))}
                 {trackers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={isHSSEManager ? 11 : 10} align="center" sx={{ fontSize: '0.92rem' }}>No entries found.</TableCell>
+                    <TableCell 
+                      colSpan={isHSSEManager ? 11 : 10} 
+                      align="center" 
+                      sx={{ 
+                        fontSize: '0.85rem',
+                        color: 'text.secondary',
+                        padding: '32px 16px',
+                        fontStyle: 'italic'
+                      }}
+                    >
+                      No entries found.
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>

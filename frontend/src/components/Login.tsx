@@ -13,7 +13,7 @@ import {
   InputAdornment,
   IconButton,
   Fade,
-  Slide,
+  Grow,
 } from '@mui/material';
 import {
   Visibility,
@@ -93,6 +93,11 @@ const Login: React.FC = () => {
           borderRadius: '50%',
           background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
           zIndex: 0,
+          animation: 'fadeIn 2s ease-out',
+          '@keyframes fadeIn': {
+            '0%': { opacity: 0, transform: 'scale(0.8)' },
+            '100%': { opacity: 1, transform: 'scale(1)' },
+          },
         }}
       />
       <Box
@@ -105,11 +110,16 @@ const Login: React.FC = () => {
           borderRadius: '50%',
           background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.08)} 0%, ${alpha(theme.palette.primary.main, 0.08)} 100%)`,
           zIndex: 0,
+          animation: 'fadeIn 2s ease-out 0.5s both',
+          '@keyframes fadeIn': {
+            '0%': { opacity: 0, transform: 'scale(0.8)' },
+            '100%': { opacity: 1, transform: 'scale(1)' },
+          },
         }}
       />
 
       <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-        <Fade in timeout={800}>
+        <Fade in timeout={1000}>
           <Paper
             elevation={0}
             sx={{
@@ -122,10 +132,15 @@ const Login: React.FC = () => {
               mx: 'auto',
               border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
               backdropFilter: 'blur(10px)',
+              animation: 'slideUp 1.2s ease-out',
+              '@keyframes slideUp': {
+                '0%': { opacity: 0, transform: 'translateY(30px)' },
+                '100%': { opacity: 1, transform: 'translateY(0)' },
+              },
             }}
           >
             {/* Left Side - Logo Section */}
-            <Slide direction="right" in timeout={1000}>
+            <Grow in timeout={1500}>
               <Box
                 sx={{
                   flex: 1,
@@ -139,7 +154,7 @@ const Login: React.FC = () => {
                   overflow: 'hidden',
                 }}
               >
-                {/* Animated Background Pattern */}
+                {/* Subtle Background Pattern */}
                 <Box
                   sx={{
                     position: 'absolute',
@@ -147,14 +162,13 @@ const Login: React.FC = () => {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    background: `radial-gradient(circle at 20% 80%, ${alpha('#ffffff', 0.15)} 0%, transparent 50%),
-                                radial-gradient(circle at 80% 20%, ${alpha('#ffffff', 0.1)} 0%, transparent 50%),
-                                radial-gradient(circle at 40% 40%, ${alpha('#ffffff', 0.08)} 0%, transparent 50%)`,
+                    background: `radial-gradient(circle at 20% 80%, ${alpha('#ffffff', 0.1)} 0%, transparent 50%),
+                                radial-gradient(circle at 80% 20%, ${alpha('#ffffff', 0.08)} 0%, transparent 50%)`,
                     zIndex: 1,
-                    animation: 'pulse 4s ease-in-out infinite',
-                    '@keyframes pulse': {
-                      '0%, 100%': { opacity: 0.8 },
-                      '50%': { opacity: 1 },
+                    animation: 'gentlePulse 6s ease-in-out infinite',
+                    '@keyframes gentlePulse': {
+                      '0%, 100%': { opacity: 0.6 },
+                      '50%': { opacity: 0.8 },
                     },
                   }}
                 />
@@ -170,7 +184,7 @@ const Login: React.FC = () => {
                     textAlign: 'center',
                   }}
                 >
-                  {/* Logo Image with Animation */}
+                  {/* Logo Image with Gentle Animation */}
                   <Box
                     component="img"
                     src={logoImage}
@@ -180,10 +194,10 @@ const Login: React.FC = () => {
                       height: 'auto',
                       mb: 4,
                       filter: 'drop-shadow(0 8px 32px rgba(0,0,0,0.15))',
-                      animation: 'float 3s ease-in-out infinite',
-                      '@keyframes float': {
+                      animation: 'gentleFloat 4s ease-in-out infinite',
+                      '@keyframes gentleFloat': {
                         '0%, 100%': { transform: 'translateY(0px)' },
-                        '50%': { transform: 'translateY(-10px)' },
+                        '50%': { transform: 'translateY(-6px)' },
                       },
                     }}
                   />
@@ -198,6 +212,7 @@ const Login: React.FC = () => {
                       textShadow: '0 4px 20px rgba(0,0,0,0.15)',
                       fontSize: { md: '2.5rem', lg: '3rem' },
                       letterSpacing: '-0.02em',
+                      fontFamily: '"Inter", sans-serif',
                     }}
                   >
                     SafeSphere
@@ -213,32 +228,33 @@ const Login: React.FC = () => {
                       lineHeight: 1.7,
                       textShadow: '0 2px 10px rgba(0,0,0,0.1)',
                       fontSize: '1.1rem',
+                      fontFamily: '"Inter", sans-serif',
                     }}
                   >
                     Comprehensive Health, Safety, Security, and Environment Management System
                   </Typography>
 
-                  {/* Decorative Elements */}
+                  {/* Subtle Decorative Elements */}
                   <Box
                     sx={{
                       mt: 4,
                       display: 'flex',
                       gap: 2,
-                      opacity: 0.7,
+                      opacity: 0.6,
                     }}
                   >
                     {[...Array(3)].map((_, i) => (
                       <Box
                         key={i}
                         sx={{
-                          width: 8,
-                          height: 8,
+                          width: 6,
+                          height: 6,
                           borderRadius: '50%',
-                          background: alpha('#ffffff', 0.6),
-                          animation: `bounce 2s ease-in-out infinite ${i * 0.2}s`,
-                          '@keyframes bounce': {
+                          background: alpha('#ffffff', 0.7),
+                          animation: `gentleBounce 3s ease-in-out infinite ${i * 0.3}s`,
+                          '@keyframes gentleBounce': {
                             '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-10px)' },
+                            '50%': { transform: 'translateY(-6px)' },
                           },
                         }}
                       />
@@ -246,10 +262,10 @@ const Login: React.FC = () => {
                   </Box>
                 </Box>
               </Box>
-            </Slide>
+            </Grow>
 
             {/* Right Side - Login Form */}
-            <Slide direction="left" in timeout={1200}>
+            <Grow in timeout={1800}>
               <Box
                 sx={{
                   flex: 1,
@@ -302,6 +318,7 @@ const Login: React.FC = () => {
                       mb: 1,
                       color: theme.palette.text.primary,
                       letterSpacing: '-0.02em',
+                      fontFamily: '"Inter", sans-serif',
                     }}
                   >
                     Welcome Back
@@ -315,6 +332,7 @@ const Login: React.FC = () => {
                       color: theme.palette.text.secondary,
                       fontSize: '1.1rem',
                       lineHeight: 1.6,
+                      fontFamily: '"Inter", sans-serif',
                     }}
                   >
                     Sign in to your SafeSphere account to continue
@@ -434,6 +452,7 @@ const Login: React.FC = () => {
                         fontWeight: 600,
                         fontSize: '1.1rem',
                         textTransform: 'none',
+                        fontFamily: '"Inter", sans-serif',
                         background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                         boxShadow: '0 8px 25px rgba(0, 82, 212, 0.3)',
                         transition: 'all 0.3s ease',
@@ -455,7 +474,7 @@ const Login: React.FC = () => {
                   </Box>
                 </Box>
               </Box>
-            </Slide>
+            </Grow>
           </Paper>
         </Fade>
 
@@ -467,6 +486,7 @@ const Login: React.FC = () => {
             textAlign: 'center',
             color: theme.palette.text.secondary,
             opacity: 0.8,
+            fontFamily: '"Inter", sans-serif',
           }}
         >
           © 2025 SafeSphere. All rights reserved.

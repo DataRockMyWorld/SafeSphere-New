@@ -19,6 +19,13 @@ import {
   ListItemAvatar,
   Button,
   Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from '@mui/material';
 import {
   Description as DocumentIcon,
@@ -27,7 +34,6 @@ import {
   Approval as ApprovalIcon,
   Edit as EditIcon,
   Search as SearchIcon,
-  Settings as SettingsIcon,
   NotificationsActive as AlertIcon,
   TrendingUp as TrendingUpIcon,
   AccessTime as PendingIcon,
@@ -35,59 +41,13 @@ import {
   Cancel as RejectedIcon,
   Schedule as RecentIcon,
   Person as UserIcon,
+  Warning as WarningIcon,
+  Info as InfoIcon,
+  Assignment as AssignmentIcon,
+  LowPriority as ChangeRequestIcon,
+  Archive as RecordsIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
-
-interface ServiceCardProps {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-}
-
-const ServiceCard: React.FC<ServiceCardProps> = ({ title, description, icon, onClick }) => {
-  const theme = useTheme();
-
-  return (
-    <Card
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        cursor: 'pointer',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: theme.shadows[8],
-          backgroundColor: alpha(theme.palette.primary.main, 0.04),
-        },
-      }}
-      onClick={onClick}
-    >
-      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', p: 3 }}>
-        <IconButton
-          sx={{
-            backgroundColor: alpha(theme.palette.primary.main, 0.1),
-            width: 64,
-            height: 64,
-            mb: 2,
-            '&:hover': {
-              backgroundColor: alpha(theme.palette.primary.main, 0.2),
-            },
-          }}
-        >
-          {icon}
-        </IconButton>
-        <Typography variant="h6" gutterBottom>
-          {title}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {description}
-        </Typography>
-      </CardContent>
-    </Card>
-  );
-};
 
 interface MetricCardProps {
   title: string;
@@ -166,7 +126,18 @@ const DocumentManagementDashboard: React.FC = () => {
     totalDocuments: 0,
     pendingApprovals: 0,
     recentRequests: 0,
-    documentTypes: { hsse: 0, safety: 0, compliance: 0, other: 0 },
+    changeRequests: 0,
+    approvedDocuments: 0,
+    rejectedDocuments: 0,
+    draftDocuments: 0,
+    documentTypes: { 
+      policy: 0, 
+      systemDocument: 0, 
+      procedure: 0, 
+      form: 0, 
+      ssow: 0, 
+      other: 0 
+    },
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
 
@@ -182,7 +153,18 @@ const DocumentManagementDashboard: React.FC = () => {
           totalDocuments: 156,
           pendingApprovals: 8,
           recentRequests: 23,
-          documentTypes: { hsse: 45, safety: 38, compliance: 52, other: 21 },
+          changeRequests: 5,
+          approvedDocuments: 142,
+          rejectedDocuments: 6,
+          draftDocuments: 12,
+          documentTypes: { 
+            policy: 45, 
+            systemDocument: 38, 
+            procedure: 52, 
+            form: 15, 
+            ssow: 8, 
+            other: 21 
+          },
         });
 
         setRecentActivities([
@@ -210,6 +192,30 @@ const DocumentManagementDashboard: React.FC = () => {
             timestamp: '6 hours ago',
             status: 'rejected',
           },
+          {
+            id: 4,
+            type: 'change',
+            title: 'PPE Usage Guidelines',
+            user: 'Lisa Brown',
+            timestamp: '8 hours ago',
+            status: 'pending',
+          },
+          {
+            id: 5,
+            type: 'document',
+            title: 'Incident Reporting Procedure',
+            user: 'David Lee',
+            timestamp: '1 day ago',
+            status: 'approved',
+          },
+          {
+            id: 6,
+            type: 'request',
+            title: 'Training Material Update',
+            user: 'Emma Davis',
+            timestamp: '1 day ago',
+            status: 'pending',
+          },
         ]);
 
         setLoading(false);
@@ -235,64 +241,36 @@ const DocumentManagementDashboard: React.FC = () => {
     }
   };
 
-  const services = [
-    {
-      title: 'Document Library',
-      description: 'Access and manage all your documents in one place',
-      icon: <DocumentIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />,
-      path: '/documents',
-    },
-    {
-      title: 'Document Templates',
-      description: 'Create and manage document templates for quick document creation',
-      icon: <TemplateIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />,
-      path: '/documents/templates',
-    },
-    {
-      title: 'Document History',
-      description: 'View the complete history and version control of documents',
-      icon: <HistoryIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />,
-      path: '/documents/history',
-    },
-    {
-      title: 'Approval Workflow',
-      description: 'Manage document approval processes and workflows',
-      icon: <ApprovalIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />,
-      path: '/documents/approvals',
-    },
-    {
-      title: 'Document Editor',
-      description: 'Create and edit documents with our rich text editor',
-      icon: <EditIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />,
-      path: '/documents/editor',
-    },
-    {
-      title: 'Document Search',
-      description: 'Advanced search functionality for finding documents quickly',
-      icon: <SearchIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />,
-      path: '/documents/search',
-    },
-    {
-      title: 'Document Settings',
-      description: 'Configure document management preferences and settings',
-      icon: <SettingsIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />,
-      path: '/documents/settings',
-    },
-  ];
+  const getDocumentTypeIcon = (type: string) => {
+    switch (type) {
+      case 'policy':
+        return <DocumentIcon />;
+      case 'systemDocument':
+        return <TemplateIcon />;
+      case 'procedure':
+        return <AssignmentIcon />;
+      case 'form':
+        return <RecordsIcon />;
+      case 'ssow':
+        return <WarningIcon />;
+      default:
+        return <InfoIcon />;
+    }
+  };
 
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-          Dashboard Overview
+          Document Management Dashboard
         </Typography>
         <Typography variant="subtitle1" color="text.secondary">
-          Monitor your document management metrics and activities
+          Monitor document status, approvals, and recent activities
         </Typography>
       </Box>
 
       <Grid container spacing={3}>
-        {/* Top Row - Metric Cards */}
+        {/* Top Row - Key Metrics */}
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Total Documents"
@@ -300,7 +278,7 @@ const DocumentManagementDashboard: React.FC = () => {
             icon={<DocumentIcon />}
             trend="+12% this month"
             color={theme.palette.primary.main}
-            subtitle="Across all categories"
+            subtitle="All document types"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -309,194 +287,256 @@ const DocumentManagementDashboard: React.FC = () => {
             value={metrics.pendingApprovals}
             icon={<ApprovalIcon />}
             color={theme.palette.warning.main}
-            subtitle="Requires immediate attention"
+            subtitle="Requires attention"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
-            title="Recent Requests"
-            value={metrics.recentRequests}
-            icon={<AlertIcon />}
-            trend="+5% this week"
-            color={theme.palette.success.main}
-            subtitle="Last 7 days"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <MetricCard
-            title="Active Users"
-            value="24"
-            icon={<UserIcon />}
-            trend="+3 this week"
+            title="Change Requests"
+            value={metrics.changeRequests}
+            icon={<ChangeRequestIcon />}
             color={theme.palette.info.main}
-            subtitle="Currently working"
+            subtitle="Awaiting review"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Approved Documents"
+            value={metrics.approvedDocuments}
+            icon={<ApprovedIcon />}
+            trend="+8% this week"
+            color={theme.palette.success.main}
+            subtitle="Successfully approved"
           />
         </Grid>
 
-        {/* Middle Row - Document Types and Quick Actions */}
-        <Grid item xs={12} md={8}>
+        {/* Document Status Distribution */}
+        <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
-              <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Typography variant="h6">Document Distribution</Typography>
-                <Chip
-                  label="Last 30 Days"
-                  size="small"
-                  sx={{
-                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                    color: theme.palette.primary.main,
+              <Typography variant="h6" sx={{ mb: 3 }}>
+                Document Status Distribution
+              </Typography>
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Approved
+                  </Typography>
+                  <Typography variant="body2" color="text.primary" fontWeight="medium">
+                    {Math.round((metrics.approvedDocuments / metrics.totalDocuments) * 100)}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={(metrics.approvedDocuments / metrics.totalDocuments) * 100}
+                  sx={{ 
+                    height: 8, 
+                    borderRadius: 4,
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: theme.palette.success.main,
+                    },
                   }}
                 />
               </Box>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        HSSE Documents
-                      </Typography>
-                      <Typography variant="body2" color="text.primary" fontWeight="medium">
-                        {Math.round((metrics.documentTypes.hsse / metrics.totalDocuments) * 100)}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={(metrics.documentTypes.hsse / metrics.totalDocuments) * 100}
-                      sx={{ height: 8, borderRadius: 4 }}
-                    />
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Safety Protocols
-                      </Typography>
-                      <Typography variant="body2" color="text.primary" fontWeight="medium">
-                        {Math.round((metrics.documentTypes.safety / metrics.totalDocuments) * 100)}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={(metrics.documentTypes.safety / metrics.totalDocuments) * 100}
-                      sx={{
-                        height: 8,
-                        borderRadius: 4,
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: theme.palette.success.main,
-                        },
-                      }}
-                    />
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Compliance Docs
-                      </Typography>
-                      <Typography variant="body2" color="text.primary" fontWeight="medium">
-                        {Math.round((metrics.documentTypes.compliance / metrics.totalDocuments) * 100)}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={(metrics.documentTypes.compliance / metrics.totalDocuments) * 100}
-                      sx={{
-                        height: 8,
-                        borderRadius: 4,
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: theme.palette.warning.main,
-                        },
-                      }}
-                    />
-                  </Box>
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Other Documents
-                      </Typography>
-                      <Typography variant="body2" color="text.primary" fontWeight="medium">
-                        {Math.round((metrics.documentTypes.other / metrics.totalDocuments) * 100)}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={(metrics.documentTypes.other / metrics.totalDocuments) * 100}
-                      sx={{
-                        height: 8,
-                        borderRadius: 4,
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: theme.palette.info.main,
-                        },
-                      }}
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Pending Approval
+                  </Typography>
+                  <Typography variant="body2" color="text.primary" fontWeight="medium">
+                    {Math.round((metrics.pendingApprovals / metrics.totalDocuments) * 100)}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={(metrics.pendingApprovals / metrics.totalDocuments) * 100}
+                  sx={{ 
+                    height: 8, 
+                    borderRadius: 4,
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: theme.palette.warning.main,
+                    },
+                  }}
+                />
+              </Box>
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Draft Documents
+                  </Typography>
+                  <Typography variant="body2" color="text.primary" fontWeight="medium">
+                    {Math.round((metrics.draftDocuments / metrics.totalDocuments) * 100)}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={(metrics.draftDocuments / metrics.totalDocuments) * 100}
+                  sx={{ 
+                    height: 8, 
+                    borderRadius: 4,
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: theme.palette.info.main,
+                    },
+                  }}
+                />
+              </Box>
+              <Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Rejected
+                  </Typography>
+                  <Typography variant="body2" color="text.primary" fontWeight="medium">
+                    {Math.round((metrics.rejectedDocuments / metrics.totalDocuments) * 100)}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={(metrics.rejectedDocuments / metrics.totalDocuments) * 100}
+                  sx={{ 
+                    height: 8, 
+                    borderRadius: 4,
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: theme.palette.error.main,
+                    },
+                  }}
+                />
+              </Box>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        {/* Document Types Distribution */}
+        <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Quick Actions
+              <Typography variant="h6" sx={{ mb: 3 }}>
+                Document Types
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<DocumentIcon />}
-                    onClick={() => navigate('/document-management/library')}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    New Document
-                  </Button>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
+                      <DocumentIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                      <Typography variant="body2">Policies</Typography>
+                    </Box>
+                    <Box sx={{ flexGrow: 1, mx: 2 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={(metrics.documentTypes.policy / metrics.totalDocuments) * 100}
+                        sx={{ height: 6, borderRadius: 3 }}
+                      />
+                    </Box>
+                    <Typography variant="body2" fontWeight="medium">
+                      {metrics.documentTypes.policy}
+                    </Typography>
+                  </Box>
                 </Grid>
-                <Grid item xs={6}>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<ApprovalIcon />}
-                    onClick={() => navigate('/document-management/approvals')}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    Review
-                  </Button>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
+                      <TemplateIcon sx={{ mr: 1, color: theme.palette.secondary.main }} />
+                      <Typography variant="body2">System Docs</Typography>
+                    </Box>
+                    <Box sx={{ flexGrow: 1, mx: 2 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={(metrics.documentTypes.systemDocument / metrics.totalDocuments) * 100}
+                        sx={{ 
+                          height: 6, 
+                          borderRadius: 3,
+                          '& .MuiLinearProgress-bar': {
+                            backgroundColor: theme.palette.secondary.main,
+                          },
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="body2" fontWeight="medium">
+                      {metrics.documentTypes.systemDocument}
+                    </Typography>
+                  </Box>
                 </Grid>
-                <Grid item xs={6}>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<RecentIcon />}
-                    onClick={() => navigate('/document-management/history')}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    History
-                  </Button>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
+                      <AssignmentIcon sx={{ mr: 1, color: theme.palette.success.main }} />
+                      <Typography variant="body2">Procedures</Typography>
+                    </Box>
+                    <Box sx={{ flexGrow: 1, mx: 2 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={(metrics.documentTypes.procedure / metrics.totalDocuments) * 100}
+                        sx={{ 
+                          height: 6, 
+                          borderRadius: 3,
+                          '& .MuiLinearProgress-bar': {
+                            backgroundColor: theme.palette.success.main,
+                          },
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="body2" fontWeight="medium">
+                      {metrics.documentTypes.procedure}
+                    </Typography>
+                  </Box>
                 </Grid>
-                <Grid item xs={6}>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<UserIcon />}
-                    onClick={() => navigate('/profile')}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    Profile
-                  </Button>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
+                      <RecordsIcon sx={{ mr: 1, color: theme.palette.warning.main }} />
+                      <Typography variant="body2">Forms</Typography>
+                    </Box>
+                    <Box sx={{ flexGrow: 1, mx: 2 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={(metrics.documentTypes.form / metrics.totalDocuments) * 100}
+                        sx={{ 
+                          height: 6, 
+                          borderRadius: 3,
+                          '& .MuiLinearProgress-bar': {
+                            backgroundColor: theme.palette.warning.main,
+                          },
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="body2" fontWeight="medium">
+                      {metrics.documentTypes.form}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
+                      <WarningIcon sx={{ mr: 1, color: theme.palette.error.main }} />
+                      <Typography variant="body2">SSOW</Typography>
+                    </Box>
+                    <Box sx={{ flexGrow: 1, mx: 2 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={(metrics.documentTypes.ssow / metrics.totalDocuments) * 100}
+                        sx={{ 
+                          height: 6, 
+                          borderRadius: 3,
+                          '& .MuiLinearProgress-bar': {
+                            backgroundColor: theme.palette.error.main,
+                          },
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="body2" fontWeight="medium">
+                      {metrics.documentTypes.ssow}
+                    </Typography>
+                  </Box>
                 </Grid>
               </Grid>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Bottom Row - Recent Activity */}
+        {/* Recent Activity */}
         <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h6">Recent Activity</Typography>
                 <Button
                   variant="text"
@@ -507,23 +547,53 @@ const DocumentManagementDashboard: React.FC = () => {
                   View All
                 </Button>
               </Box>
-              <Grid container spacing={2}>
-                {recentActivities.map((activity, index) => (
-                  <Grid item xs={12} md={4} key={activity.id}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                          <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1), mr: 2 }}>
-                            {getStatusIcon(activity.status)}
-                          </Avatar>
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="subtitle2" noWrap>
+              <TableContainer component={Paper} variant="outlined">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Document</TableCell>
+                      <TableCell>User</TableCell>
+                      <TableCell>Action</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Time</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {recentActivities.map((activity) => (
+                      <TableRow key={activity.id} hover>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Avatar sx={{ 
+                              bgcolor: alpha(theme.palette.primary.main, 0.1), 
+                              mr: 2,
+                              width: 32,
+                              height: 32
+                            }}>
+                              {getStatusIcon(activity.status)}
+                            </Avatar>
+                            <Typography variant="body2" fontWeight="medium">
                               {activity.title}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {activity.user}
-                            </Typography>
                           </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {activity.user}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={activity.type}
+                            variant="outlined"
+                            sx={{
+                              textTransform: 'capitalize',
+                              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                              color: theme.palette.primary.main,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
                           <Chip
                             size="small"
                             label={activity.status}
@@ -535,15 +605,17 @@ const DocumentManagementDashboard: React.FC = () => {
                                 : 'error'
                             }
                           />
-                        </Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'right' }}>
-                          {activity.timestamp}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="caption" color="text.secondary">
+                            {activity.timestamp}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </CardContent>
           </Card>
         </Grid>

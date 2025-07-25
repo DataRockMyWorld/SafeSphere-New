@@ -9,6 +9,10 @@ interface User {
   last_name: string;
   role: string;
   position: string;
+  department: string;
+  is_hsse_manager?: boolean;
+  is_staff?: boolean;
+  is_superuser?: boolean;
 }
 
 interface AuthContextType {
@@ -45,10 +49,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       setUser(userData);
       
-      // Create welcome notification
+      // Create welcome notification for first-time users
       try {
-        await axiosInstance.post('/notifications/create-welcome/');
-      } catch (notificationError) {
+        const notificationResponse = await axiosInstance.post('/notifications/first-time-login/');
+        if (notificationResponse.data.is_first_time) {
+          console.log('Welcome notification created for first-time user');
+        }
+      } catch (notificationError: any) {
         console.error('Failed to create welcome notification:', notificationError);
         // Don't fail login if notification creation fails
       }

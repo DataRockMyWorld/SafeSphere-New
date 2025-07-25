@@ -45,9 +45,9 @@ DEBUG = env.bool('DEBUG', default=True)
 ALLOWED_HOSTS = ['*']
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000']
+CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5176', 'http://127.0.0.1:5176']
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000']
+CSRF_TRUSTED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5176', 'http://127.0.0.1:5176']
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     "legals",
     "ppes",
     "audits",
+    "performance",
     "corsheaders",
     "rest_framework",
     "drf_yasg",
@@ -222,7 +223,7 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@example.com')
 
 # Frontend URL for password reset links
-FRONTEND_URL = env('FRONTEND_URL', default='http://127.0.0.1:5173')
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173')
 
 AUTH_USER_MODEL = 'accounts.User'
 

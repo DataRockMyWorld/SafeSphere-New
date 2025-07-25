@@ -116,7 +116,8 @@ class LoginSerializer(serializers.ModelSerializer):
                 'role': user.role,
                 'department': user.department,
                 'position': user.position,
-                'phone_number': user.phone_number
+                'phone_number': user.phone_number,
+                'is_superuser': user.is_superuser,
             }
         }
 
@@ -147,7 +148,7 @@ class UserMeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'role', 'first_name', 'last_name', 'phone_number', 'full_name', 'position']
+        fields = ['id', 'email', 'role', 'first_name', 'last_name', 'phone_number', 'full_name', 'position', 'is_superuser']
 
     def get_full_name(self, obj):
         return obj.get_full_name

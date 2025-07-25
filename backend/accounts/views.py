@@ -19,6 +19,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import get_user_model
 from datetime import timedelta
 import traceback
+import os
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -302,6 +303,73 @@ class CreateUserView(generics.CreateAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+class CreateTestUserView(generics.CreateAPIView):
+    """Development-only view for creating test users with known passwords."""
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny]  # Only for development
+
+    def create(self, request, *args, **kwargs):
+        # Only allow in development
+        if os.getenv('DJANGO_ENV', 'development') != 'development':
+            return Response(
+                {"error": "This endpoint is only available in development mode."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            email = request.data.get('email', 'test@example.com')
+            password = request.data.get('password', 'testpass123')
+            first_name = request.data.get('first_name', 'Test')
+            last_name = request.data.get('last_name', 'User')
+            phone_number = request.data.get('phone_number', '1234567890')
+            role = request.data.get('role', 'EMPLOYEE')
+            position = request.data.get('position', 'TECHNICIAN')
+            department = request.data.get('department', 'OPERATIONS')
+            
+            # Check if user already exists
+            if User.objects.filter(email=email).exists():
+                user = User.objects.get(email=email)
+                user.set_password(password)
+                user.save()
+                message = f"Updated existing user {email} with new password"
+            else:
+                # Create new user with known password
+                user = User.objects.create_user(
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone_number=phone_number,
+                    role=role,
+                    position=position,
+                    department=department,
+                    password=password,  # This will work in development mode
+                    is_active=True,
+                    is_staff=False,
+                    is_superuser=False
+                )
+                message = f"Created test user {email} with password: {password}"
+            
+            return Response({
+                "message": message,
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "role": user.role,
+                    "department": user.department,
+                    "position": user.position,
+                    "password": password
+                }
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.error(f"Test user creation error: {str(e)}")
+            return Response(
+                {"error": f"An error occurred while creating the test user: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 # =============================
 # Notification Views
 # =============================
@@ -372,6 +440,33 @@ class CreateWelcomeNotificationView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        notification = Notification.create_welcome_notification(request.user)
-        serializer = NotificationSerializer(notification)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Only create welcome notification if user hasn't received one before
+        if request.user.should_receive_welcome_notification():
+            notification = Notification.create_welcome_notification(request.user)
+            serializer = NotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(
+                {'message': 'Welcome notification already exists for this user'}, 
+                status=status.HTTP_200_OK
+            )
+
+
+class FirstTimeLoginNotificationView(generics.GenericAPIView):
+    """View for creating welcome notification on first-time login."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Only create welcome notification if user hasn't received one before
+        if request.user.should_receive_welcome_notification():
+            notification = Notification.create_welcome_notification(request.user)
+            serializer = NotificationSerializer(notification)
+            return Response({
+                'notification': serializer.data,
+                'is_first_time': True
+            }, status=status.HTTP_201_CREATED)
+        else:
+            return Response({
+                'message': 'Welcome notification already exists for this user',
+                'is_first_time': False
+            }, status=status.HTTP_200_OK)

@@ -173,8 +173,8 @@ const NotificationBell: React.FC = () => {
   return (
     <>
       <Tooltip title="Notifications">
-        <IconButton
-          onClick={handleClick}
+      <IconButton
+        onClick={handleClick}
           sx={{
             color: theme.palette.text.secondary,
             background: alpha(theme.palette.primary.main, 0.08),
@@ -187,7 +187,7 @@ const NotificationBell: React.FC = () => {
             },
             transition: 'all 0.2s ease',
           }}
-        >
+      >
           <Badge 
             badgeContent={unreadCount} 
             color="error"
@@ -200,9 +200,9 @@ const NotificationBell: React.FC = () => {
               },
             }}
           >
-            {unreadCount > 0 ? <NotificationsIcon /> : <NotificationsNoneIcon />}
-          </Badge>
-        </IconButton>
+          {unreadCount > 0 ? <NotificationsIcon /> : <NotificationsNoneIcon />}
+        </Badge>
+      </IconButton>
       </Tooltip>
 
       <Popover
@@ -245,10 +245,10 @@ const NotificationBell: React.FC = () => {
             )}
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            {unreadCount > 0 && (
-              <Button
-                size="small"
-                onClick={markAllAsRead}
+              {unreadCount > 0 && (
+                <Button
+                  size="small"
+                  onClick={markAllAsRead}
                 sx={{
                   fontSize: '0.75rem',
                   px: 1.5,
@@ -259,14 +259,14 @@ const NotificationBell: React.FC = () => {
                     background: alpha(theme.palette.primary.main, 0.2),
                   },
                 }}
-              >
-                Mark all read
-              </Button>
-            )}
-            {notifications.length > 0 && (
-              <Button
-                size="small"
-                onClick={deleteAllNotifications}
+                >
+                  Mark all read
+                </Button>
+              )}
+              {notifications.length > 0 && (
+                <Button
+                  size="small"
+                  onClick={deleteAllNotifications}
                 sx={{
                   fontSize: '0.75rem',
                   px: 1.5,
@@ -277,12 +277,12 @@ const NotificationBell: React.FC = () => {
                     background: alpha(theme.palette.error.main, 0.2),
                   },
                 }}
-              >
-                Clear all
-              </Button>
-            )}
+                >
+                  Clear all
+                </Button>
+              )}
+            </Box>
           </Box>
-        </Box>
 
         <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
           {loading ? (
@@ -315,7 +315,7 @@ const NotificationBell: React.FC = () => {
                         background: alpha(theme.palette.primary.main, 0.08),
                         '&:hover': {
                           background: alpha(theme.palette.primary.main, 0.12),
-                        },
+                      },
                       }),
                     }}
                     onClick={() => markAsRead(notification.id)}
@@ -325,15 +325,15 @@ const NotificationBell: React.FC = () => {
                     </ListItemIcon>
                     <ListItemText
                       primary={
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: notification.is_read ? 400 : 600,
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: notification.is_read ? 400 : 600,
                             color: notification.is_read ? 'text.primary' : 'text.primary',
                             fontSize: '0.875rem',
-                          }}
-                        >
-                          {notification.title}
+                            }}
+                          >
+                            {notification.title}
                         </Typography>
                       }
                       secondary={
@@ -371,7 +371,7 @@ const NotificationBell: React.FC = () => {
                           borderRadius: '50%',
                           background: theme.palette.primary.main,
                           ml: 1,
-                        }}
+                          }}
                       />
                     )}
                   </ListItem>

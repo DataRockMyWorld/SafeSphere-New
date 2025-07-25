@@ -10,6 +10,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.crypto import get_random_string
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -52,16 +53,25 @@ class UserManager(BaseUserManager):
             **extra_fields
         )
 
-        # Generate a random password for the user if it's not a superuser creation
+        # Check if we're in development mode and password is provided
+        is_development = os.getenv('DJANGO_ENV', 'development') == 'development'
+        
         if not extra_fields.get('is_superuser', False):
-            password = get_random_string(length=12)
-            user.set_password(password)
-            user.save(using=self._db)
-            
-            # Send password reset email
-            logger.info(f"Sending password reset email to {email}")
-            self.send_verification_email(user)
-            logger.info(f"Password reset email sent to {email}")
+            if is_development and password:
+                # In development, use the provided password
+                user.set_password(password)
+                user.save(using=self._db)
+                logger.info(f"Created user {email} with provided password in development mode")
+            else:
+                # Generate a random password for the user if it's not a superuser creation
+                password = get_random_string(length=12)
+                user.set_password(password)
+                user.save(using=self._db)
+                
+                # Send password reset email
+                logger.info(f"Sending password reset email to {email}")
+                self.send_verification_email(user)
+                logger.info(f"Password reset email sent to {email}")
         else:
             # This block is for creating superusers
             raise ValueError(_('Regular users cannot have password set by superusers'))
@@ -99,7 +109,7 @@ class UserManager(BaseUserManager):
             logger.info(f"Generated reset code for user {user.email}")
             
             # Use settings to get the frontend URL, with fallback to localhost
-            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://127.0.0.1:3000')
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
             reset_url = f"{frontend_url}/reset-password/{user.pk}/{reset_code}/"
             logger.info(f"Generated reset URL: {reset_url}")
 

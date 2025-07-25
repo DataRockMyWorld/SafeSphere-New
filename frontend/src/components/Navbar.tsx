@@ -19,16 +19,18 @@ import {
 } from '@mui/material';
 import {
   AccountCircle,
-  Dashboard,
   Notifications as NotificationsIcon,
   Home as HomeIcon,
   Security as SecurityIcon,
+  AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { useAdmin } from '../context/AdminContext';
 import NotificationBell from './NotificationBell';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
+  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -78,8 +80,8 @@ const Navbar = () => {
         >
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'center',
+            display: 'flex',
+            alignItems: 'center',
               justifyContent: 'center',
               width: 40,
               height: 40,
@@ -102,10 +104,11 @@ const Navbar = () => {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               display: { xs: 'none', sm: 'block' },
+              fontFamily: '"Inter", sans-serif',
             }}
           >
-            SafeSphere
-          </Typography>
+          SafeSphere
+        </Typography>
         </Box>
 
         {isAuthenticated ? (
@@ -142,34 +145,16 @@ const Navbar = () => {
                       transform: 'scale(1.05)',
                     },
                     transition: 'all 0.2s ease',
-                  }}
-                >
+                }}
+              >
                   <HomeIcon />
                 </IconButton>
               </Tooltip>
 
-              <Tooltip title="Dashboard">
-                <IconButton
-                  onClick={() => navigate('/document-management')}
-                  sx={{
-                    color: 'white',
-                    background: alpha(theme.palette.common.white, 0.1),
-                    backdropFilter: 'blur(10px)',
-                    border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
-                    '&:hover': {
-                      background: alpha(theme.palette.common.white, 0.2),
-                      transform: 'scale(1.05)',
-                    },
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <Dashboard />
-                </IconButton>
-              </Tooltip>
-              
+              {/* Removed Admin Panel Link */}
               <NotificationBell />
             </Box>
-
+              
             {/* User Menu */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Tooltip title="Account settings">

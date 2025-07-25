@@ -26,8 +26,6 @@ import {
   Description as DocumentIcon,
   History as HistoryIcon,
   CheckCircleOutline as ApprovalIcon,
-  Edit as EditIcon,
-  Settings as SettingsIcon,
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Assignment as FormsIcon,
@@ -81,12 +79,6 @@ const menuItems = [
     description: 'View document version history and changes',
     icon: <HistoryIcon />,
     path: '/document-management/history',
-  },
-  {
-    title: 'Settings',
-    description: 'Configure document management settings',
-    icon: <SettingsIcon />,
-    path: '/document-management/settings',
   },
 ];
 
@@ -176,9 +168,9 @@ const DocumentManagementLayout: React.FC = () => {
                   color: 'white',
                   fontWeight: 700,
                   fontSize: '1rem',
-                }}
-              >
-                DM
+              }}
+            >
+              DM
               </Typography>
             </Box>
           </Box>

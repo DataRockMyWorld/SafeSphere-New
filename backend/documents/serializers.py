@@ -39,13 +39,14 @@ class DocumentSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     verified_by_name = serializers.SerializerMethodField()
     approved_by_name = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
     file = serializers.FileField(validators=[validate_file_type])
 
     class Meta:
         model = Document
         fields = [
             'id', 'title', 'description', 'document_type', 'category',
-            'content', 'tags', 'file', 'iso_clauses', 'version', 'revision_number',
+            'content', 'tags', 'file', 'file_url', 'iso_clauses', 'version', 'revision_number',
             'status', 'expiry_date', 'next_review_date', 'created_by',
             'created_by_name', 'created_at', 'updated_at', 'verified_by',
             'verified_by_name', 'verified_at', 'approved_by', 'approved_by_name',
@@ -65,6 +66,14 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     def get_approved_by_name(self, obj):
         return obj.approved_by.get_full_name if obj.approved_by else None
+
+    def get_file_url(self, obj):
+        if obj.file:
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
 
     def create(self, validated_data):
         # Set the created_by field to the current user

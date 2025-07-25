@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, MenuItem, Select, InputLabel, FormControl, Button, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Pagination, Alert } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, MenuItem, Select, InputLabel, FormControl, Button, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Pagination, Alert, Chip } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Close as CloseIcon } from '@mui/icons-material';
 import axiosInstance from '../../utils/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
@@ -277,70 +277,164 @@ const LawLibrary: React.FC = () => {
           </Button>
         )}
       </Box>
-      <Paper>
+      <Paper sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderRadius: 2 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
         ) : (
           <TableContainer>
-            <Table>
+            <Table sx={{ minWidth: 650 }}>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Title</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Country</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Category</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Jurisdiction</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Repealed</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Summary</TableCell>
-                  <TableCell sx={{ fontSize: '0.92rem' }}>Actions</TableCell>
+                <TableRow sx={{ 
+                  backgroundColor: 'primary.main',
+                  '& th': {
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    padding: '12px 8px',
+                    borderBottom: '2px solid',
+                    borderBottomColor: 'primary.dark',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }
+                }}>
+                  <TableCell>Title</TableCell>
+                  <TableCell>Country</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Jurisdiction</TableCell>
+                  <TableCell>Repealed</TableCell>
+                  <TableCell>Summary</TableCell>
+                  {isHSSEManager && <TableCell>Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {laws.map(law => (
-                  <TableRow key={law.id} hover onClick={() => {
-                    if (!isHSSEManager) {
-                      setSelectedLaw(law);
-                      setModalMode('detail');
-                      setModalOpen(true);
-                    }
-                  }} style={{ cursor: !isHSSEManager ? 'pointer' : 'default' }}>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{law.title}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{law.country}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{categories.find(c => c.id === law.category)?.name || law.category}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{law.jurisdiction}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{law.is_repealed ? 'Yes' : 'No'}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>{law.summary}</TableCell>
-                    <TableCell sx={{ fontSize: '0.92rem' }}>
-                      {isHSSEManager ? (
-                        <>
-                          <IconButton onClick={e => {
-                            e.stopPropagation();
-                            setSelectedLaw(law);
-                            setModalMode('detail');
-                            setModalOpen(true);
-                          }}><CloseIcon fontSize="small" /></IconButton>
-                          <IconButton onClick={e => {
-                            e.stopPropagation();
-                            setSelectedLaw(law);
-                            setFormState(law);
-                            setModalMode('edit');
-                            setModalOpen(true);
-                          }}><EditIcon fontSize="small" /></IconButton>
-                          <IconButton onClick={e => {
-                            e.stopPropagation();
-                            setDeleteConfirm(law);
-                            setModalMode('delete');
-                            setModalOpen(true);
-                          }}><DeleteIcon fontSize="small" /></IconButton>
-                        </>
-                      ) : null}
+                  <TableRow 
+                    key={law.id} 
+                    hover 
+                    onClick={() => {
+                      if (!isHSSEManager) {
+                        setSelectedLaw(law);
+                        setModalMode('detail');
+                        setModalOpen(true);
+                      }
+                    }} 
+                    style={{ cursor: !isHSSEManager ? 'pointer' : 'default' }}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                        transition: 'background-color 0.2s ease'
+                      },
+                      '& td': {
+                        padding: '8px',
+                        fontSize: '0.85rem',
+                        borderBottom: '1px solid #e0e0e0',
+                        verticalAlign: 'middle'
+                      },
+                      '&:nth-of-type(even)': {
+                        backgroundColor: '#fafafa'
+                      }
+                    }}
+                  >
+                    <TableCell sx={{ fontWeight: 500, color: 'text.primary' }}>{law.title}</TableCell>
+                    <TableCell>{law.country}</TableCell>
+                    <TableCell>{categories.find(c => c.id === law.category)?.name || law.category}</TableCell>
+                    <TableCell sx={{ textTransform: 'capitalize' }}>{law.jurisdiction}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={law.is_repealed ? 'Yes' : 'No'} 
+                        color={law.is_repealed ? 'error' : 'success'} 
+                        size="small"
+                        sx={{ 
+                          fontSize: '0.75rem',
+                          fontWeight: 600
+                        }}
+                      />
                     </TableCell>
+                    <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {law.summary}
+                    </TableCell>
+                    {isHSSEManager && (
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <IconButton 
+                            onClick={e => {
+                              e.stopPropagation();
+                              setSelectedLaw(law);
+                              setModalMode('detail');
+                              setModalOpen(true);
+                            }}
+                            size="small"
+                            sx={{ 
+                              color: 'info.main',
+                              '&:hover': {
+                                backgroundColor: 'rgba(3, 169, 244, 0.1)',
+                                transform: 'scale(1.1)',
+                                transition: 'all 0.2s ease'
+                              }
+                            }}
+                          >
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            onClick={e => {
+                              e.stopPropagation();
+                              setSelectedLaw(law);
+                              setFormState(law);
+                              setModalMode('edit');
+                              setModalOpen(true);
+                            }}
+                            size="small"
+                            sx={{ 
+                              color: 'primary.main',
+                              '&:hover': {
+                                backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                                transform: 'scale(1.1)',
+                                transition: 'all 0.2s ease'
+                              }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            onClick={e => {
+                              e.stopPropagation();
+                              setDeleteConfirm(law);
+                              setModalMode('delete');
+                              setModalOpen(true);
+                            }}
+                            size="small"
+                            sx={{ 
+                              color: 'error.main',
+                              '&:hover': {
+                                backgroundColor: 'rgba(211, 47, 47, 0.1)',
+                                transform: 'scale(1.1)',
+                                transition: 'all 0.2s ease'
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
                 {laws.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ fontSize: '0.92rem' }}>No laws found.</TableCell>
+                    <TableCell 
+                      colSpan={isHSSEManager ? 7 : 6} 
+                      align="center" 
+                      sx={{ 
+                        fontSize: '0.85rem',
+                        color: 'text.secondary',
+                        padding: '32px 16px',
+                        fontStyle: 'italic'
+                      }}
+                    >
+                      No laws found.
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>
