@@ -45,6 +45,15 @@ from ppes.serializers import (
     PPEPurchaseReceiptSerializer
 )
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework import status
+from django.db import connection
+from django.core.cache import cache
+from django.conf import settings
+import redis
+import os
 
 User = get_user_model()
 
@@ -1455,3 +1464,79 @@ class PPEPurchaseReceiptListAPIView(generics.ListAPIView):
         if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
             return [IsHSSEManager()]
         return [IsAuthenticated()]
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_check(request):
+    """
+    Health check endpoint for monitoring
+    """
+    health_status = {
+        'status': 'healthy',
+        'timestamp': None,
+        'database': 'unknown',
+        'cache': 'unknown',
+        'celery': 'unknown',
+        'version': '1.0.0'
+    }
+    
+    # Check database connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            health_status['database'] = 'connected'
+    except Exception as e:
+        health_status['database'] = f'error: {str(e)}'
+        health_status['status'] = 'unhealthy'
+    
+    # Check cache (Redis)
+    try:
+        cache.set('health_check', 'ok', 10)
+        if cache.get('health_check') == 'ok':
+            health_status['cache'] = 'connected'
+        else:
+            health_status['cache'] = 'error'
+            health_status['status'] = 'unhealthy'
+    except Exception as e:
+        health_status['cache'] = f'error: {str(e)}'
+        health_status['status'] = 'unhealthy'
+    
+    # Check Celery (if available)
+    try:
+        from celery import current_app
+        if current_app.control.inspect().active():
+            health_status['celery'] = 'connected'
+        else:
+            health_status['celery'] = 'disconnected'
+    except Exception as e:
+        health_status['celery'] = f'error: {str(e)}'
+    
+    # Add timestamp
+    from django.utils import timezone
+    health_status['timestamp'] = timezone.now().isoformat()
+    
+    # Return appropriate status code
+    if health_status['status'] == 'healthy':
+        return Response(health_status, status=status.HTTP_200_OK)
+    else:
+        return Response(health_status, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def system_info(request):
+    """
+    System information endpoint (for debugging)
+    """
+    import psutil
+    
+    info = {
+        'python_version': os.sys.version,
+        'django_version': '5.0.14',
+        'cpu_count': psutil.cpu_count(),
+        'memory_total': psutil.virtual_memory().total,
+        'memory_available': psutil.virtual_memory().available,
+        'disk_usage': psutil.disk_usage('/').percent,
+        'environment': 'production' if not settings.DEBUG else 'development',
+    }
+    
+    return Response(info, status=status.HTTP_200_OK)

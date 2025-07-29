@@ -59,6 +59,8 @@ router = DefaultRouter()
 router.register(r'records', RecordViewSet, basename='record')
 
 urlpatterns = [
+    path('health/', views.health_check, name='health_check'),
+    path('system-info/', views.system_info, name='system_info'),
     path('documents/', DocumentListCreateAPIView.as_view(), name='document-list-create'),
     path('documents/<uuid:pk>/', DocumentRetrieveUpdateDestroyAPIView.as_view(), name='document-retrieve-update-destroy'),
     path('documents/iso-clauses/', ISOClauseListCreateAPIView.as_view(), name='iso-clause-list-create'),
