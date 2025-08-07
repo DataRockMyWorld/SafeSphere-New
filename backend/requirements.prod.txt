@@ -48,3 +48,4 @@ django-anymail[sendgrid]==10.2
 # Additional utilities
 python-decouple==3.8
 django-extensions==3.2.3 
+psutil==5.9.8

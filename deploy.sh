@@ -49,12 +49,34 @@ check_env() {
     fi
 }
 
+# Function to check database connection
+check_database() {
+    print_status "Checking database connection..."
+    
+    # Get database credentials from environment
+    source .env.prod
+    
+    # Test connection
+    if pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USER; then
+        print_status "Database connection successful"
+    else
+        print_error "Database connection failed"
+        exit 1
+    fi
+}
+
 # Function to backup database
 backup_database() {
     print_status "Creating database backup..."
-    docker-compose -f $COMPOSE_FILE exec -T db pg_dump -U $DB_USER $DB_NAME > $BACKUP_DIR/backup_$(date +%Y%m%d_%H%M%S).sql
+
+    # Get database credentials from environment
+    source .env.prod
+
+    # Create backup using pg_dump with external database
+    pg_dump "postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME" > $BACKUP_DIR/backup_$(date +%Y%m%d_%H%M%S).sql
     print_status "Backup completed successfully"
 }
+
 
 # Function to start services
 start_services() {
@@ -199,6 +221,7 @@ case "$1" in
     start)
         check_docker
         check_env
+	check_database
         setup_ssl
         start_services
         print_status "SafeSphere is starting up..."
