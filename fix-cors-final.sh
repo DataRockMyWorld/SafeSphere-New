@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Final CORS Fix Script
-# This script ensures CORS is properly configured
+# This script updates the correct nginx-ssl.conf file and restarts containers
 
 set -e
 
@@ -35,63 +35,29 @@ check_root() {
     fi
 }
 
-# Function to backup current settings
-backup_settings() {
-    print_status "Backing up current settings..."
+# Function to backup current nginx config
+backup_nginx() {
+    print_status "Backing up current nginx configuration..."
     
-    if [ -f "backend/core/settings.py" ]; then
-        cp backend/core/settings.py backend/core/settings.py.backup.$(date +%Y%m%d_%H%M%S)
-        print_success "Settings backed up"
+    if [ -f "nginx/nginx-ssl.conf" ]; then
+        cp nginx/nginx-ssl.conf nginx/nginx-ssl.conf.backup.$(date +%Y%m%d_%H%M%S)
+        print_success "Nginx config backed up"
     else
-        print_warning "Settings file not found"
+        print_warning "Nginx config file not found"
     fi
 }
 
-# Function to update CORS settings
-update_cors_settings() {
-    print_status "Updating CORS settings..."
+# Function to restart containers
+restart_containers() {
+    print_status "Restarting containers to apply CORS changes..."
     
-    # Update CORS_ALLOWED_ORIGINS
-    sed -i '/^CORS_ALLOWED_ORIGINS = \[/,/^\]/c\
-CORS_ALLOWED_ORIGINS = [\
-    "https://safe-sphere-zeta.vercel.app",\
-    "https://safespheres.info",\
-    "https://www.safespheres.info",\
-    "http://localhost:5173",\
-    "http://127.0.0.1:5173",\
-    "http://localhost:3000",\
-    "http://127.0.0.1:3000",\
-    "http://localhost:5176",\
-    "http://127.0.0.1:5176",\
-]' backend/core/settings.py
+    docker-compose -f docker-compose.ssl.yml down
+    docker-compose -f docker-compose.ssl.yml up -d
     
-    # Update CSRF_TRUSTED_ORIGINS
-    sed -i '/^CSRF_TRUSTED_ORIGINS = \[/,/^\]/c\
-CSRF_TRUSTED_ORIGINS = [\
-    "https://safe-sphere-zeta.vercel.app",\
-    "https://safespheres.info",\
-    "https://www.safespheres.info",\
-    "http://localhost:5173",\
-    "http://127.0.0.1:5173",\
-    "http://localhost:3000",\
-    "http://127.0.0.1:3000",\
-    "http://localhost:5176",\
-    "http://127.0.0.1:5176",\
-]' backend/core/settings.py
-    
-    print_success "CORS settings updated"
-}
-
-# Function to restart backend
-restart_backend() {
-    print_status "Restarting backend to apply CORS changes..."
-    
-    docker-compose -f docker-compose.ssl.yml restart backend
-    
-    # Wait for backend to start
+    # Wait for containers to start
     sleep 10
     
-    print_success "Backend restarted"
+    print_success "Containers restarted"
 }
 
 # Function to test CORS
@@ -100,14 +66,15 @@ test_cors() {
     
     # Test OPTIONS request
     echo "Testing OPTIONS request..."
-    CORS_RESPONSE=$(curl -s -X OPTIONS -H "Origin: https://safe-sphere-zeta.vercel.app" -H "Access-Control-Request-Method: POST" https://safespheres.info/api/v1/auth/login/ 2>/dev/null)
     
-    if echo "$CORS_RESPONSE" | grep -q "Access-Control-Allow-Origin"; then
+    if curl -I -X OPTIONS -H "Origin: https://safe-sphere-zeta.vercel.app" -H "Access-Control-Request-Method: POST" https://safespheres.info/api/v1/auth/login/ 2>/dev/null | grep -q "Access-Control-Allow-Origin"; then
         print_success "CORS headers found in response"
-        echo "Response: $CORS_RESPONSE"
+        echo "Response headers:"
+        curl -I -X OPTIONS -H "Origin: https://safe-sphere-zeta.vercel.app" -H "Access-Control-Request-Method: POST" https://safespheres.info/api/v1/auth/login/ 2>/dev/null | grep -i "access-control"
     else
         print_error "CORS headers missing from response"
-        echo "Response: $CORS_RESPONSE"
+        echo "Response headers:"
+        curl -I -X OPTIONS -H "Origin: https://safe-sphere-zeta.vercel.app" -H "Access-Control-Request-Method: POST" https://safespheres.info/api/v1/auth/login/ 2>/dev/null
     fi
 }
 
@@ -116,7 +83,7 @@ show_usage() {
     echo "Usage: $0 [command]"
     echo ""
     echo "Commands:"
-    echo "  fix       - Apply CORS fix"
+    echo "  fix       - Apply final CORS fix"
     echo "  test      - Test CORS configuration"
     echo "  help      - Show this help message"
     echo ""
@@ -129,9 +96,8 @@ show_usage() {
 case "$1" in
     fix)
         check_root
-        backup_settings
-        update_cors_settings
-        restart_backend
+        backup_nginx
+        restart_containers
         test_cors
         ;;
     test)
