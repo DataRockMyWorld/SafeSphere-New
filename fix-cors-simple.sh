@@ -32,14 +32,65 @@ check_root() {
     fi
 }
 
-# Function to update Django settings
-update_django_settings() {
-    print_status "Updating Django CORS settings..."
-    
-    # Create a backup
+# Function to backup settings
+backup_settings() {
+    print_status "Backing up current settings..."
     cp backend/core/settings.py backend/core/settings.py.backup
+    print_status "Settings backed up"
+}
+
+# Function to update CORS settings
+update_cors_settings() {
+    print_status "Updating CORS settings..."
     
-    # Update the CORS settings in the main settings file
+    # Create a temporary file with updated CORS settings
+    cat > backend/core/settings_temp.py << 'EOF'
+# CORS settings
+CORS_ALLOWED_ORIGINS = [
+    'https://safe-sphere-zeta.vercel.app',
+    'https://safespheres.info',
+    'https://www.safespheres.info',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5176',
+    'http://127.0.0.1:5176',
+]
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    'https://safe-sphere-zeta.vercel.app',
+    'https://safespheres.info',
+    'https://www.safespheres.info',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5176',
+    'http://127.0.0.1:5176',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+EOF
+
+    # Replace the CORS section in the main settings file
     sed -i '/^# CORS settings$/,/^CORS_ALLOW_HEADERS = \[/c\
 # CORS settings\
 CORS_ALLOWED_ORIGINS = [\
@@ -50,6 +101,8 @@ CORS_ALLOWED_ORIGINS = [\
     "http://127.0.0.1:5173",\
     "http://localhost:3000",\
     "http://127.0.0.1:3000",\
+    "http://localhost:5176",\
+    "http://127.0.0.1:5176",\
 ]\
 CORS_ALLOW_CREDENTIALS = True\
 CSRF_TRUSTED_ORIGINS = [\
@@ -60,6 +113,8 @@ CSRF_TRUSTED_ORIGINS = [\
     "http://127.0.0.1:5173",\
     "http://localhost:3000",\
     "http://127.0.0.1:3000",\
+    "http://localhost:5176",\
+    "http://127.0.0.1:5176",\
 ]\
 CORS_ALLOW_METHODS = [\
     "DELETE",\
@@ -70,8 +125,11 @@ CORS_ALLOW_METHODS = [\
     "PUT",\
 ]\
 CORS_ALLOW_HEADERS = [' backend/core/settings.py
+
+    # Clean up
+    rm backend/core/settings_temp.py
     
-    print_status "Django CORS settings updated"
+    print_status "CORS settings updated"
 }
 
 # Function to update environment file
@@ -80,10 +138,10 @@ update_env_file() {
     
     if [ -f .env.prod ]; then
         # Update CORS settings in .env.prod
-        sed -i 's|CORS_ALLOWED_ORIGINS=.*|CORS_ALLOWED_ORIGINS=https://safe-sphere-zeta.vercel.app,https://safespheres.info,https://www.safespheres.info,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000|' .env.prod
+        sed -i 's|CORS_ALLOWED_ORIGINS=.*|CORS_ALLOWED_ORIGINS=https://safe-sphere-zeta.vercel.app,https://safespheres.info,https://www.safespheres.info,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5176,http://127.0.0.1:5176|' .env.prod
         
         # Update CSRF settings
-        sed -i 's|CSRF_TRUSTED_ORIGINS=.*|CSRF_TRUSTED_ORIGINS=https://safe-sphere-zeta.vercel.app,https://safespheres.info,https://www.safespheres.info,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000|' .env.prod
+        sed -i 's|CSRF_TRUSTED_ORIGINS=.*|CSRF_TRUSTED_ORIGINS=https://safe-sphere-zeta.vercel.app,https://safespheres.info,https://www.safespheres.info,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5176,http://127.0.0.1:5176|' .env.prod
         
         print_status "Environment file updated"
     else
@@ -91,22 +149,26 @@ update_env_file() {
     fi
 }
 
-# Function to restart services
-restart_services() {
-    print_status "Restarting services..."
+# Function to restart backend
+restart_backend() {
+    print_status "Restarting backend to apply CORS changes..."
     
-    # Restart backend to apply new settings
-    docker-compose -f docker-compose.ssl.yml restart backend
-    
-    # Wait for backend to start
-    sleep 10
-    
-    print_status "Services restarted"
+    # If you're using docker-compose
+    if command -v docker-compose &> /dev/null; then
+        docker-compose -f docker-compose.ssl.yml restart backend
+        print_status "Backend restarted via docker-compose"
+    else
+        print_warning "docker-compose not found. Please restart your backend manually."
+        print_warning "You can restart it with: docker-compose -f docker-compose.ssl.yml restart backend"
+    fi
 }
 
 # Function to test CORS
 test_cors() {
     print_status "Testing CORS configuration..."
+    
+    # Wait a moment for backend to start
+    sleep 5
     
     # Test if the API is accessible
     if curl -f https://safespheres.info/api/v1/auth/login/ > /dev/null 2>&1; then
@@ -117,7 +179,8 @@ test_cors() {
     fi
     
     # Test CORS headers
-    cors_headers=$(curl -I -H "Origin: https://safe-sphere-zeta.vercel.app" https://safespheres.info/api/v1/auth/login/ 2>/dev/null | grep -i "access-control-allow-origin" || echo "")
+    echo "Testing CORS headers..."
+    cors_headers=$(curl -I -H "Origin: https://safe-sphere-zeta.vercel.app" https://safespheres.info/api/v1/auth/login/ 2>/dev/null | grep -i "access-control-allow-origin" || echo "CORS headers not found in response")
     
     if [ -n "$cors_headers" ]; then
         print_status "CORS headers are present"
@@ -125,6 +188,8 @@ test_cors() {
     else
         print_warning "CORS headers not found. This might be normal for OPTIONS requests."
     fi
+    
+    print_status "CORS test completed"
 }
 
 # Function to show usage
@@ -145,9 +210,10 @@ show_usage() {
 case "$1" in
     fix)
         check_root
-        update_django_settings
+        backup_settings
+        update_cors_settings
         update_env_file
-        restart_services
+        restart_backend
         test_cors
         print_status "CORS settings fixed successfully!"
         print_status "Your Vercel frontend should now be able to connect to the backend."
