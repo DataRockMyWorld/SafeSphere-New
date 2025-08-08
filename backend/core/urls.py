@@ -15,7 +15,6 @@ from accounts.views import (
     LoginUserView, LogoutUserView, PasswordResetConfirmView
 )
 from rest_framework_simplejwt.views import TokenRefreshView
-
 schema_view = get_schema_view(
     openapi.Info(
         title="SafeSphere API",

@@ -65,14 +65,14 @@ test_backend_health() {
     fi
     
     # Test if backend is responding on port 8000
-    if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+    if curl -f http://localhost:8000/api/v1/health/ > /dev/null 2>&1; then
         print_status "Backend is responding on port 8000"
     else
         print_error "Backend is not responding on port 8000"
     fi
     
     # Test if nginx is responding
-    if curl -f https://safespheres.info/health > /dev/null 2>&1; then
+    if curl -f https://safespheres.info/api/v1/health/ > /dev/null 2>&1; then
         print_status "Nginx is responding"
     else
         print_error "Nginx is not responding"
@@ -92,10 +92,10 @@ check_network() {
     print_status "Checking network connectivity..."
     
     echo "=== Testing local connections ==="
-    curl -I http://localhost:8000/health 2>/dev/null || echo "Backend not accessible locally"
+    curl -I http://localhost:8000/api/v1/health/ 2>/dev/null || echo "Backend not accessible locally"
     
     echo "=== Testing domain connection ==="
-    curl -I https://safespheres.info/health 2>/dev/null || echo "Domain not accessible"
+    curl -I https://safespheres.info/api/v1/health/ 2>/dev/null || echo "Domain not accessible"
     
     echo "=== Testing API endpoint ==="
     curl -I https://safespheres.info/api/v1/auth/login/ 2>/dev/null || echo "API endpoint not accessible"
