@@ -8,9 +8,9 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./etc/letsencrypt:/etc/letsencrypt:ro
-      - ./var/www/certbot:/var/www/certbot:ro
+      - ./nginx/nginx-ssl.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - /var/www/certbot:/var/www/certbot:ro
       - nginx_logs:/var/log/nginx
     depends_on:
       - backend
@@ -78,8 +78,6 @@ services:
     networks:
       - safesphere_network
 
-  # Backup service (Using external database)
-
 volumes:
   redis_data:
   backend_static:
@@ -89,4 +87,4 @@ volumes:
 
 networks:
   safesphere_network:
-    driver: bridge 
+    driver: bridge
