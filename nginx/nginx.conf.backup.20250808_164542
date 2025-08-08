@@ -70,9 +70,9 @@ http {
         http2 on;
         server_name safespheres.info www.safespheres.info;
 
-        # SSL configuration using local certificate files
-        ssl_certificate /etc/nginx/ssl/fullchain.pem;
-        ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+        # SSL configuration (will be updated by Let's Encrypt)
+        ssl_certificate /etc/letsencrypt/live/safespheres.info/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/safespheres.info/privkey.pem;
         ssl_protocols TLSv1.2 TLSv1.3;
         ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
         ssl_prefer_server_ciphers off;
@@ -85,6 +85,24 @@ http {
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "no-referrer-when-downgrade" always;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+        # CORS headers for all origins
+        add_header Access-Control-Allow-Origin "https://safe-sphere-zeta.vercel.app" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization" always;
+        add_header Access-Control-Allow-Credentials "true" always;
+
+        # Handle preflight OPTIONS requests
+        if ($request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin "https://safe-sphere-zeta.vercel.app" always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization" always;
+            add_header Access-Control-Allow-Credentials "true" always;
+            add_header Access-Control-Max-Age "1728000" always;
+            add_header Content-Type "text/plain; charset=utf-8" always;
+            add_header Content-Length "0" always;
+            return 204;
+        }
 
         # API routes
         location /api/ {
@@ -143,6 +161,7 @@ http {
         }
 
         # Frontend is hosted on Vercel
+        # All non-API routes should redirect to Vercel frontend
         location / {
             return 301 https://safe-sphere-zeta.vercel.app$request_uri;
         }
