@@ -4,6 +4,10 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 
+// Common components
+import ErrorBoundary from './components/common/ErrorBoundary';
+import NotificationProvider from './components/common/NotificationSystem';
+
 // Import Inter font
 import '@fontsource/inter/300.css';
 import '@fontsource/inter/400.css';
@@ -461,18 +465,22 @@ const Layout: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
-        <AdminProvider>
-          <PPEPermissionProvider>
-            <Router>
-              <Layout />
-            </Router>
-          </PPEPermissionProvider>
-        </AdminProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <NotificationProvider>
+          <AuthProvider>
+            <AdminProvider>
+              <PPEPermissionProvider>
+                <Router>
+                  <Layout />
+                </Router>
+              </PPEPermissionProvider>
+            </AdminProvider>
+          </AuthProvider>
+        </NotificationProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 
