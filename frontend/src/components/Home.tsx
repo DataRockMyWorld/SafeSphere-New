@@ -161,7 +161,7 @@ const Home: React.FC = () => {
     },
   ];
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://safespheres.info';
+  const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
   const adminUrl = `${backendUrl.replace(/\/$/, '')}/admin/`;
 
   return (
