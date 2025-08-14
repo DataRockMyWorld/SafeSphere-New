@@ -52,7 +52,6 @@ from rest_framework import status
 from django.db import connection
 from django.core.cache import cache
 from django.conf import settings
-import redis
 import os
 
 User = get_user_model()

@@ -56,11 +56,18 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5176",
     "http://127.0.0.1:5176",
 ]
-
 CORS_ALLOW_CREDENTIALS = True
-
-CORS_ALLOW_ALL_ORIGINS = False
-
+CSRF_TRUSTED_ORIGINS = [
+    "https://safe-sphere-zeta.vercel.app",
+    "https://safespheres.info",
+    "https://www.safespheres.info",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5176",
+    "http://127.0.0.1:5176",
+]
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",
@@ -69,160 +76,16 @@ CORS_ALLOW_METHODS = [
     "POST",
     "PUT",
 ]
-
 CORS_ALLOW_HEADERS = [
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
     'accept',
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
     'accept-encoding',
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
     'authorization',
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
     'content-type',
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
     'dnt',
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
     'origin',
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
     'user-agent',
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
     'x-csrftoken',
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
     'x-requested-with',
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
-]
-]
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://safe-sphere-zeta.vercel.app",
-    "https://safespheres.info",
-    "https://www.safespheres.info",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5176",
-    "http://127.0.0.1:5176",
 ]
 
 
