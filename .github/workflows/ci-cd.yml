@@ -75,7 +75,7 @@ jobs:
 
       - name: Run tests
         run: |
-          python manage.py test --noinput
+          python manage.py test --noinput --verbosity=2
 
   frontend:
     name: Frontend (Vite/React) CI
@@ -90,12 +90,14 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: '20.x'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm list --depth=0
 
       - name: Build
         run: npm run build
