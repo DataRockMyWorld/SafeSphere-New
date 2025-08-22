@@ -162,7 +162,10 @@ const Home: React.FC = () => {
   ];
 
   const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-  const adminUrl = `${backendUrl.replace(/\/$/, '')}/admin/`;
+  // Django admin is at the root domain, not under /api/v1
+  const adminUrl = import.meta.env.VITE_API_BASE_URL 
+    ? import.meta.env.VITE_API_BASE_URL.replace('/api/v1', '') + '/admin/'
+    : 'http://localhost:8000/admin/';
 
   return (
     <Box
