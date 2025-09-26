@@ -23,6 +23,8 @@ from api.views import (
     OpsReviewAPIView,
     MDApprovalAPIView,
     RecordViewSet,
+    # Document Dashboard
+    DocumentDashboardAPIView,
     LawCategoryListCreateAPIView,
     LawCategoryRetrieveUpdateDestroyAPIView,
     LawResourceListCreateAPIView,
@@ -84,6 +86,7 @@ urlpatterns = [
     path('documents/<uuid:pk>/submit-for-ops-review/', SubmitForOpsReviewAPIView.as_view(), name='document-submit-for-ops-review'),
     path('documents/<uuid:pk>/ops-review/', OpsReviewAPIView.as_view(), name='document-ops-review'),
     path('documents/<uuid:pk>/md-approval/', MDApprovalAPIView.as_view(), name='document-md-approval'),
+    path('documents/dashboard/', DocumentDashboardAPIView.as_view(), name='document-dashboard'),
     path('legals/categories/', LawCategoryListCreateAPIView.as_view(), name='lawcategory-list-create'),
     path('legals/categories/<int:pk>/', LawCategoryRetrieveUpdateDestroyAPIView.as_view(), name='lawcategory-detail'),
     path('legals/resources/', LawResourceListCreateAPIView.as_view(), name='lawresource-list-create'),

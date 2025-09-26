@@ -26,6 +26,9 @@ import {
   TableHead,
   TableRow,
   Paper,
+  CircularProgress,
+  Alert,
+  Skeleton,
 } from '@mui/material';
 import {
   Description as DocumentIcon,
@@ -46,8 +49,22 @@ import {
   Assignment as AssignmentIcon,
   LowPriority as ChangeRequestIcon,
   Archive as RecordsIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import axios from 'axios';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
+import axiosInstance from '../../utils/axiosInstance';
 
 interface MetricCardProps {
   title: string;
@@ -62,19 +79,57 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon, trend, colo
   const theme = useTheme();
 
   return (
-    <Card sx={{ height: '100%' }}>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+    <Card 
+      sx={{ 
+        height: '100%',
+        background: `linear-gradient(135deg, ${alpha(color, 0.05)} 0%, ${alpha(color, 0.02)} 100%)`,
+        border: `1px solid ${alpha(color, 0.1)}`,
+        borderRadius: 3,
+        position: 'relative',
+        overflow: 'hidden',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: `0 12px 40px ${alpha(color, 0.15)}`,
+          borderColor: alpha(color, 0.2),
+        },
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 4,
+          background: `linear-gradient(90deg, ${color}, ${alpha(color, 0.6)})`,
+        }
+      }}
+    >
+      <CardContent sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3 }}>
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: 2,
-              width: 48,
-              height: 48,
-              backgroundColor: alpha(color, 0.1),
-              color: color,
+              borderRadius: 2.5,
+              width: 56,
+              height: 56,
+              background: `linear-gradient(135deg, ${color}, ${alpha(color, 0.8)})`,
+              color: 'white',
+              boxShadow: `0 8px 24px ${alpha(color, 0.3)}`,
+              position: 'relative',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                inset: -2,
+                borderRadius: 2.5,
+                padding: 2,
+                background: `linear-gradient(135deg, ${color}, ${alpha(color, 0.3)})`,
+                mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                maskComposite: 'xor',
+                opacity: 0,
+                transition: 'opacity 0.3s ease',
+              }
             }}
           >
             {icon}
@@ -82,28 +137,58 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon, trend, colo
           {trend && (
             <Chip
               size="small"
-              icon={<TrendingUpIcon />}
+              icon={<TrendingUpIcon sx={{ fontSize: 16 }} />}
               label={trend}
               sx={{
-                ml: 'auto',
                 backgroundColor: alpha(theme.palette.success.main, 0.1),
                 color: theme.palette.success.main,
+                border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                height: 28,
                 '.MuiChip-icon': { color: 'inherit' },
               }}
             />
           )}
         </Box>
-        <Typography variant="h4" sx={{ mb: 0.5, fontWeight: 600 }}>
-          {value}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            {subtitle}
+        <Box>
+          <Typography 
+            variant="h3" 
+            sx={{ 
+              mb: 1, 
+              fontWeight: 700,
+              background: `linear-gradient(135deg, ${theme.palette.text.primary}, ${alpha(theme.palette.text.primary, 0.8)})`,
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              lineHeight: 1.2,
+            }}
+          >
+            {value}
           </Typography>
-        )}
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              fontWeight: 600,
+              color: theme.palette.text.primary,
+              mb: 0.5,
+            }}
+          >
+            {title}
+          </Typography>
+          {subtitle && (
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: theme.palette.text.secondary,
+                fontWeight: 500,
+                opacity: 0.8,
+              }}
+            >
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
       </CardContent>
     </Card>
   );
@@ -111,131 +196,76 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon, trend, colo
 
 interface RecentActivity {
   id: number;
-  type: string;
-  title: string;
-  user: string;
-  timestamp: string;
-  status: string;
+  document_title: string;
+  action: string;
+  performed_by: string;
+  created_at: string;
+  comment: string;
+}
+
+interface DashboardData {
+  metrics: {
+    total_documents: number;
+    pending_approvals: number;
+    change_requests: number;
+    approved_documents: number;
+    rejected_documents: number;
+    draft_documents: number;
+  };
+  document_types: {
+    policy: number;
+    system_document: number;
+    procedure: number;
+    form: number;
+    ssow: number;
+    other: number;
+  };
+  status_breakdown: {
+    draft: number;
+    hsse_review: number;
+    ops_review: number;
+    md_approval: number;
+    approved: number;
+    rejected: number;
+  };
+  recent_activities: RecentActivity[];
 }
 
 const DocumentManagementDashboard: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState({
-    totalDocuments: 0,
-    pendingApprovals: 0,
-    recentRequests: 0,
-    changeRequests: 0,
-    approvedDocuments: 0,
-    rejectedDocuments: 0,
-    draftDocuments: 0,
-    documentTypes: { 
-      policy: 0, 
-      systemDocument: 0, 
-      procedure: 0, 
-      form: 0, 
-      ssow: 0, 
-      other: 0 
-    },
-  });
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
 
-  useEffect(() => {
-    // Simulated API calls - replace with actual API endpoints
     const fetchDashboardData = async () => {
       try {
-        // const response = await axios.get('/api/dashboard/metrics');
-        // setMetrics(response.data);
-        
-        // Simulated data
-        setMetrics({
-          totalDocuments: 156,
-          pendingApprovals: 8,
-          recentRequests: 23,
-          changeRequests: 5,
-          approvedDocuments: 142,
-          rejectedDocuments: 6,
-          draftDocuments: 12,
-          documentTypes: { 
-            policy: 45, 
-            systemDocument: 38, 
-            procedure: 52, 
-            form: 15, 
-            ssow: 8, 
-            other: 21 
-          },
-        });
-
-        setRecentActivities([
-          {
-            id: 1,
-            type: 'approval',
-            title: 'Safety Protocol Update 2024',
-            user: 'John Smith',
-            timestamp: '2 hours ago',
-            status: 'pending',
-          },
-          {
-            id: 2,
-            type: 'document',
-            title: 'Emergency Response Plan',
-            user: 'Sarah Johnson',
-            timestamp: '4 hours ago',
-            status: 'approved',
-          },
-          {
-            id: 3,
-            type: 'request',
-            title: 'Chemical Storage Guidelines',
-            user: 'Mike Wilson',
-            timestamp: '6 hours ago',
-            status: 'rejected',
-          },
-          {
-            id: 4,
-            type: 'change',
-            title: 'PPE Usage Guidelines',
-            user: 'Lisa Brown',
-            timestamp: '8 hours ago',
-            status: 'pending',
-          },
-          {
-            id: 5,
-            type: 'document',
-            title: 'Incident Reporting Procedure',
-            user: 'David Lee',
-            timestamp: '1 day ago',
-            status: 'approved',
-          },
-          {
-            id: 6,
-            type: 'request',
-            title: 'Training Material Update',
-            user: 'Emma Davis',
-            timestamp: '1 day ago',
-            status: 'pending',
-          },
-        ]);
-
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+      setLoading(true);
+      setError(null);
+      const response = await axiosInstance.get('/documents/dashboard/');
+      setDashboardData(response.data);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
         setLoading(false);
       }
     };
 
+  useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending':
+  const getStatusIcon = (action: string) => {
+    switch (action.toLowerCase()) {
+      case 'submit':
         return <PendingIcon sx={{ color: theme.palette.warning.main }} />;
-      case 'approved':
+      case 'approve':
         return <ApprovedIcon sx={{ color: theme.palette.success.main }} />;
-      case 'rejected':
+      case 'reject':
         return <RejectedIcon sx={{ color: theme.palette.error.main }} />;
+      case 'verify':
+        return <ApprovalIcon sx={{ color: theme.palette.info.main }} />;
       default:
         return <DocumentIcon sx={{ color: theme.palette.primary.main }} />;
     }
@@ -245,7 +275,7 @@ const DocumentManagementDashboard: React.FC = () => {
     switch (type) {
       case 'policy':
         return <DocumentIcon />;
-      case 'systemDocument':
+      case 'system_document':
         return <TemplateIcon />;
       case 'procedure':
         return <AssignmentIcon />;
@@ -258,25 +288,97 @@ const DocumentManagementDashboard: React.FC = () => {
     }
   };
 
-  return (
-    <Box>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-          Document Management Dashboard
-        </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
-          Monitor document status, approvals, and recent activities
-        </Typography>
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Prepare chart data
+  const documentTypeData = dashboardData ? [
+    { name: 'Policy', value: dashboardData.document_types.policy, color: theme.palette.primary.main },
+    { name: 'System Document', value: dashboardData.document_types.system_document, color: theme.palette.secondary.main },
+    { name: 'Procedure', value: dashboardData.document_types.procedure, color: theme.palette.success.main },
+    { name: 'Form', value: dashboardData.document_types.form, color: theme.palette.warning.main },
+    { name: 'SSOW', value: dashboardData.document_types.ssow, color: theme.palette.error.main },
+    { name: 'Other', value: dashboardData.document_types.other, color: theme.palette.info.main },
+  ] : [];
+
+  const statusData = dashboardData ? [
+    { name: 'Draft', value: dashboardData.status_breakdown.draft, color: theme.palette.grey[400] },
+    { name: 'HSSE Review', value: dashboardData.status_breakdown.hsse_review, color: theme.palette.warning.main },
+    { name: 'OPS Review', value: dashboardData.status_breakdown.ops_review, color: theme.palette.info.main },
+    { name: 'MD Approval', value: dashboardData.status_breakdown.md_approval, color: theme.palette.secondary.main },
+    { name: 'Approved', value: dashboardData.status_breakdown.approved, color: theme.palette.success.main },
+    { name: 'Rejected', value: dashboardData.status_breakdown.rejected, color: theme.palette.error.main },
+  ] : [];
+
+  if (loading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Box>
+            <Skeleton variant="text" width={300} height={40} />
+            <Skeleton variant="text" width={400} height={24} />
+          </Box>
+          <Skeleton variant="circular" width={40} height={40} />
+        </Box>
+        <Grid container spacing={3}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={12} sm={6} md={3} key={i}>
+              <Skeleton variant="rectangular" height={120} />
+            </Grid>
+          ))}
+        </Grid>
       </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" action={
+          <Button color="inherit" size="small" onClick={fetchDashboardData}>
+            Retry
+          </Button>
+        }>
+          {error}
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="info">No data available</Alert>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ 
+      width: '100%', 
+      height: '100vh', 
+      overflow: 'auto',
+      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+      position: 'relative',
+    }}>
+      <Box sx={{ p: 4 }}>
 
       <Grid container spacing={3}>
         {/* Top Row - Key Metrics */}
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Total Documents"
-            value={metrics.totalDocuments}
+            value={dashboardData.metrics.total_documents}
             icon={<DocumentIcon />}
-            trend="+12% this month"
             color={theme.palette.primary.main}
             subtitle="All document types"
           />
@@ -284,7 +386,7 @@ const DocumentManagementDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Pending Approvals"
-            value={metrics.pendingApprovals}
+            value={dashboardData.metrics.pending_approvals}
             icon={<ApprovalIcon />}
             color={theme.palette.warning.main}
             subtitle="Requires attention"
@@ -293,7 +395,7 @@ const DocumentManagementDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Change Requests"
-            value={metrics.changeRequests}
+            value={dashboardData.metrics.change_requests}
             icon={<ChangeRequestIcon />}
             color={theme.palette.info.main}
             subtitle="Awaiting review"
@@ -302,313 +404,388 @@ const DocumentManagementDashboard: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
             title="Approved Documents"
-            value={metrics.approvedDocuments}
+            value={dashboardData.metrics.approved_documents}
             icon={<ApprovedIcon />}
-            trend="+8% this week"
             color={theme.palette.success.main}
             subtitle="Successfully approved"
           />
         </Grid>
 
-        {/* Document Status Distribution */}
+        {/* Document Types Doughnut Chart */}
         <Grid item xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 3 }}>
-                Document Status Distribution
-              </Typography>
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Approved
-                  </Typography>
-                  <Typography variant="body2" color="text.primary" fontWeight="medium">
-                    {Math.round((metrics.approvedDocuments / metrics.totalDocuments) * 100)}%
-                  </Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={(metrics.approvedDocuments / metrics.totalDocuments) * 100}
-                  sx={{ 
-                    height: 8, 
-                    borderRadius: 4,
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: theme.palette.success.main,
-                    },
+          <Card 
+            sx={{ 
+              height: '100%',
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              borderRadius: 4,
+              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                background: 'linear-gradient(90deg, #8b5cf6, #a855f7)',
+              }
+            }}
+          >
+            <CardContent sx={{ p: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #8b5cf6, #a855f7)',
+                    mr: 2,
                   }}
                 />
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 700,
+                    color: theme.palette.text.primary,
+                    fontSize: '1.25rem',
+                  }}
+                >
+                  Document Types Distribution
+                </Typography>
               </Box>
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Pending Approval
-                  </Typography>
-                  <Typography variant="body2" color="text.primary" fontWeight="medium">
-                    {Math.round((metrics.pendingApprovals / metrics.totalDocuments) * 100)}%
-                  </Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={(metrics.pendingApprovals / metrics.totalDocuments) * 100}
-                  sx={{ 
-                    height: 8, 
-                    borderRadius: 4,
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: theme.palette.warning.main,
-                    },
-                  }}
-                />
-              </Box>
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Draft Documents
-                  </Typography>
-                  <Typography variant="body2" color="text.primary" fontWeight="medium">
-                    {Math.round((metrics.draftDocuments / metrics.totalDocuments) * 100)}%
-                  </Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={(metrics.draftDocuments / metrics.totalDocuments) * 100}
-                  sx={{ 
-                    height: 8, 
-                    borderRadius: 4,
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: theme.palette.info.main,
-                    },
-                  }}
-                />
-              </Box>
-              <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Rejected
-                  </Typography>
-                  <Typography variant="body2" color="text.primary" fontWeight="medium">
-                    {Math.round((metrics.rejectedDocuments / metrics.totalDocuments) * 100)}%
-                  </Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={(metrics.rejectedDocuments / metrics.totalDocuments) * 100}
-                  sx={{ 
-                    height: 8, 
-                    borderRadius: 4,
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: theme.palette.error.main,
-                    },
-                  }}
-                />
+              <Box sx={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={documentTypeData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={120}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {documentTypeData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value) => [value, 'Documents']}
+                      contentStyle={{
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        border: 'none',
+                        borderRadius: 12,
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+                        backdropFilter: 'blur(20px)',
+                      }}
+                    />
+                    <Legend 
+                      wrapperStyle={{
+                        paddingTop: 20,
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </Box>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Document Types Distribution */}
+        {/* Document Status Bar Chart */}
         <Grid item xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 3 }}>
-                Document Types
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
-                      <DocumentIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
-                      <Typography variant="body2">Policies</Typography>
-                    </Box>
-                    <Box sx={{ flexGrow: 1, mx: 2 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={(metrics.documentTypes.policy / metrics.totalDocuments) * 100}
-                        sx={{ height: 6, borderRadius: 3 }}
-                      />
-                    </Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      {metrics.documentTypes.policy}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
-                      <TemplateIcon sx={{ mr: 1, color: theme.palette.secondary.main }} />
-                      <Typography variant="body2">System Docs</Typography>
-                    </Box>
-                    <Box sx={{ flexGrow: 1, mx: 2 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={(metrics.documentTypes.systemDocument / metrics.totalDocuments) * 100}
-                        sx={{ 
-                          height: 6, 
-                          borderRadius: 3,
-                          '& .MuiLinearProgress-bar': {
-                            backgroundColor: theme.palette.secondary.main,
-                          },
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      {metrics.documentTypes.systemDocument}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
-                      <AssignmentIcon sx={{ mr: 1, color: theme.palette.success.main }} />
-                      <Typography variant="body2">Procedures</Typography>
-                    </Box>
-                    <Box sx={{ flexGrow: 1, mx: 2 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={(metrics.documentTypes.procedure / metrics.totalDocuments) * 100}
-                        sx={{ 
-                          height: 6, 
-                          borderRadius: 3,
-                          '& .MuiLinearProgress-bar': {
-                            backgroundColor: theme.palette.success.main,
-                          },
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      {metrics.documentTypes.procedure}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
-                      <RecordsIcon sx={{ mr: 1, color: theme.palette.warning.main }} />
-                      <Typography variant="body2">Forms</Typography>
-                    </Box>
-                    <Box sx={{ flexGrow: 1, mx: 2 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={(metrics.documentTypes.form / metrics.totalDocuments) * 100}
-                        sx={{ 
-                          height: 6, 
-                          borderRadius: 3,
-                          '& .MuiLinearProgress-bar': {
-                            backgroundColor: theme.palette.warning.main,
-                          },
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      {metrics.documentTypes.form}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
-                      <WarningIcon sx={{ mr: 1, color: theme.palette.error.main }} />
-                      <Typography variant="body2">SSOW</Typography>
-                    </Box>
-                    <Box sx={{ flexGrow: 1, mx: 2 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={(metrics.documentTypes.ssow / metrics.totalDocuments) * 100}
-                        sx={{ 
-                          height: 6, 
-                          borderRadius: 3,
-                          '& .MuiLinearProgress-bar': {
-                            backgroundColor: theme.palette.error.main,
-                          },
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      {metrics.documentTypes.ssow}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
+          <Card 
+            sx={{ 
+              height: '100%',
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              borderRadius: 4,
+              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                background: 'linear-gradient(90deg, #06b6d4, #0891b2)',
+              }
+            }}
+          >
+            <CardContent sx={{ p: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+                    mr: 2,
+                  }}
+                />
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 700,
+                    color: theme.palette.text.primary,
+                    fontSize: '1.25rem',
+                  }}
+                >
+                  Document Status Overview
+                </Typography>
+              </Box>
+              <Box sx={{ height: 320 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={statusData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                    <CartesianGrid 
+                      strokeDasharray="3 3" 
+                      stroke={alpha(theme.palette.divider, 0.3)}
+                    />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        border: 'none',
+                        borderRadius: 12,
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+                        backdropFilter: 'blur(20px)',
+                      }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      fill="url(#statusGradient)"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <defs>
+                      <linearGradient id="statusGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#06b6d4" />
+                        <stop offset="100%" stopColor="#0891b2" />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
 
         {/* Recent Activity */}
         <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6">Recent Activity</Typography>
+          <Card 
+            sx={{ 
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              borderRadius: 4,
+              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                background: 'linear-gradient(90deg, #f59e0b, #d97706)',
+              }
+            }}
+          >
+            <CardContent sx={{ p: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                      mr: 2,
+                    }}
+                  />
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      fontWeight: 700,
+                      color: theme.palette.text.primary,
+                      fontSize: '1.25rem',
+                    }}
+                  >
+                    Recent Activity
+                  </Typography>
+                </Box>
                 <Button
-                  variant="text"
-                  size="small"
+                  variant="outlined"
+                  size="medium"
                   endIcon={<HistoryIcon />}
                   onClick={() => navigate('/document-management/history')}
+                  sx={{
+                    borderColor: theme.palette.primary.main,
+                    color: theme.palette.primary.main,
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    px: 3,
+                    py: 1,
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                      borderColor: theme.palette.primary.dark,
+                      transform: 'translateY(-1px)',
+                    },
+                    transition: 'all 0.2s ease',
+                  }}
                 >
                   View All
                 </Button>
               </Box>
-              <TableContainer component={Paper} variant="outlined">
+              <TableContainer 
+                component={Paper} 
+                sx={{ 
+                  borderRadius: 3,
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  overflow: 'hidden',
+                }}
+              >
                 <Table>
                   <TableHead>
-                    <TableRow>
-                      <TableCell>Document</TableCell>
-                      <TableCell>User</TableCell>
-                      <TableCell>Action</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Time</TableCell>
+                    <TableRow sx={{ background: alpha(theme.palette.primary.main, 0.02) }}>
+                      <TableCell sx={{ 
+                        fontWeight: 700, 
+                        color: theme.palette.text.primary,
+                        fontSize: '0.875rem',
+                        py: 2,
+                        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      }}>
+                        Document
+                      </TableCell>
+                      <TableCell sx={{ 
+                        fontWeight: 700, 
+                        color: theme.palette.text.primary,
+                        fontSize: '0.875rem',
+                        py: 2,
+                        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      }}>
+                        Action
+                      </TableCell>
+                      <TableCell sx={{ 
+                        fontWeight: 700, 
+                        color: theme.palette.text.primary,
+                        fontSize: '0.875rem',
+                        py: 2,
+                        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      }}>
+                        Performed By
+                      </TableCell>
+                      <TableCell sx={{ 
+                        fontWeight: 700, 
+                        color: theme.palette.text.primary,
+                        fontSize: '0.875rem',
+                        py: 2,
+                        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      }}>
+                        Time
+                      </TableCell>
+                      <TableCell sx={{ 
+                        fontWeight: 700, 
+                        color: theme.palette.text.primary,
+                        fontSize: '0.875rem',
+                        py: 2,
+                        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      }}>
+                        Comment
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {recentActivities.map((activity) => (
-                      <TableRow key={activity.id} hover>
-                        <TableCell>
+                    {dashboardData.recent_activities.map((activity, index) => (
+                      <TableRow 
+                        key={activity.id} 
+                        hover
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                          },
+                          '&:nth-of-type(even)': {
+                            backgroundColor: alpha(theme.palette.grey[50], 0.3),
+                          }
+                        }}
+                      >
+                        <TableCell sx={{ py: 2.5 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <Avatar sx={{ 
-                              bgcolor: alpha(theme.palette.primary.main, 0.1), 
+                              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${alpha(theme.palette.primary.main, 0.8)})`,
                               mr: 2,
-                              width: 32,
-                              height: 32
+                              width: 36,
+                              height: 36,
+                              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
                             }}>
-                              {getStatusIcon(activity.status)}
+                              {getStatusIcon(activity.action)}
                             </Avatar>
-                            <Typography variant="body2" fontWeight="medium">
-                              {activity.title}
+                            <Typography variant="body2" fontWeight={600} color={theme.palette.text.primary}>
+                              {activity.document_title}
                             </Typography>
                           </Box>
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {activity.user}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ py: 2.5 }}>
                           <Chip
                             size="small"
-                            label={activity.type}
-                            variant="outlined"
+                            label={activity.action}
                             sx={{
                               textTransform: 'capitalize',
-                              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.primary.main, 0.05)})`,
                               color: theme.palette.primary.main,
+                              border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                              fontWeight: 600,
+                              fontSize: '0.75rem',
                             }}
                           />
                         </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={activity.status}
-                            color={
-                              activity.status === 'approved'
-                                ? 'success'
-                                : activity.status === 'pending'
-                                ? 'warning'
-                                : 'error'
-                            }
-                          />
+                        <TableCell sx={{ py: 2.5 }}>
+                          <Typography variant="body2" color={theme.palette.text.secondary} fontWeight={500}>
+                            {activity.performed_by}
+                          </Typography>
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="caption" color="text.secondary">
-                            {activity.timestamp}
+                        <TableCell sx={{ py: 2.5 }}>
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              color: theme.palette.text.secondary,
+                              fontWeight: 500,
+                              background: alpha(theme.palette.grey[100], 0.8),
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: 1,
+                            }}
+                          >
+                            {formatTimeAgo(activity.created_at)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ py: 2.5 }}>
+                          <Typography 
+                            variant="body2" 
+                            color={theme.palette.text.secondary} 
+                            sx={{ 
+                              maxWidth: 200,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              fontStyle: activity.comment ? 'normal' : 'italic',
+                            }}
+                          >
+                            {activity.comment || 'No comment'}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -619,7 +796,8 @@ const DocumentManagementDashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-      </Grid>
+        </Grid>
+      </Box>
     </Box>
   );
 };

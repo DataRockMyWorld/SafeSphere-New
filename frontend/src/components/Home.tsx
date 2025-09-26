@@ -52,34 +52,61 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon, onC
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'transform 0.2s, box-shadow 0.2s',
+        transition: 'all 0.3s ease',
         cursor: 'pointer',
+        border: `1px solid ${theme.palette.divider}`,
+        backgroundColor: theme.palette.background.paper,
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: theme.shadows[8],
-          backgroundColor: alpha(theme.palette.primary.main, 0.04),
-            },
+          transform: 'translateY(-2px)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+          borderColor: theme.palette.primary.main,
+        },
       }}
       onClick={onClick}
     >
-      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', p: 3 }}>
-        <IconButton
+      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', p: 4 }}>
+        <Box
           sx={{
-            backgroundColor: alpha(theme.palette.primary.main, 0.1),
-            width: 64,
-            height: 64,
-            mb: 2,
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            backgroundColor: theme.palette.grey[50],
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mb: 3,
+            border: `2px solid ${theme.palette.grey[200]}`,
+            transition: 'all 0.3s ease',
             '&:hover': {
-              backgroundColor: alpha(theme.palette.primary.main, 0.2),
+              backgroundColor: theme.palette.primary.main,
+              borderColor: theme.palette.primary.main,
+              '& svg': {
+                color: theme.palette.primary.contrastText,
+              },
             },
           }}
         >
-          {icon}
-        </IconButton>
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, fontFamily: '"Inter", sans-serif' }}>
+          {React.cloneElement(icon, {
+            sx: {
+              fontSize: 28,
+              color: theme.palette.text.secondary,
+              transition: 'color 0.3s ease',
+            },
+          })}
+        </Box>
+        <Typography variant="h6" gutterBottom sx={{ 
+          fontWeight: 600, 
+          fontFamily: '"Inter", sans-serif',
+          color: theme.palette.text.primary,
+          mb: 2,
+        }}>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ fontFamily: '"Inter", sans-serif' }}>
+        <Typography variant="body2" sx={{ 
+          fontFamily: '"Inter", sans-serif',
+          color: theme.palette.text.secondary,
+          lineHeight: 1.6,
+        }}>
           {description}
         </Typography>
       </CardContent>
@@ -104,60 +131,63 @@ const Home: React.FC = () => {
       icon: <DocumentIcon />,
       path: '/document-management',
       color: theme.palette.primary.main,
-      gradient: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+      gradient: theme.palette.primary.main,
     },
     {
       title: 'Legal Register & Law Library',
       description: 'Track legal compliance requirements and access comprehensive legal documents, regulations, and compliance resources',
       icon: <LegalIcon />,
       path: '/legal',
-      color: theme.palette.error.main,
-      gradient: `linear-gradient(135deg, ${theme.palette.error.main}, ${theme.palette.error.light})`,
+      color: theme.palette.text.primary,
+      gradient: theme.palette.text.primary,
     },
     {
       title: 'PPE Management',
       description: 'Track and manage Personal Protective Equipment inventory with automated alerts',
       icon: <PPEIcon />,
       path: '/ppe',
-      color: theme.palette.info.main,
-      gradient: `linear-gradient(135deg, ${theme.palette.info.main}, ${theme.palette.info.light})`,
+      color: theme.palette.text.primary,
+      gradient: theme.palette.text.primary,
     },
     {
       title: 'Audit Management',
       description: 'Schedule and track HSSE compliance audits with comprehensive reporting tools',
       icon: <AuditIcon />,
       path: '/audits',
-      color: theme.palette.secondary.main,
-      gradient: `linear-gradient(135deg, ${theme.palette.secondary.main}, ${theme.palette.secondary.light})`,
+      color: theme.palette.text.primary,
+      gradient: theme.palette.text.primary,
     },
     {
       title: 'Performance Management',
       description: 'Monitor and improve HSSE performance metrics with real-time dashboards',
       icon: <PerformanceIcon />,
       path: '/performance',
-      color: theme.palette.success.main,
-      gradient: `linear-gradient(135deg, ${theme.palette.success.main}, ${theme.palette.success.light})`,
+      color: theme.palette.text.primary,
+      gradient: theme.palette.text.primary,
     },
   ];
 
   const quickActions = [
     {
-      title: 'Dashboard',
+      title: 'My Dashboard',
+      description: 'View your personal overview and recent activity',
       icon: <DashboardIcon />,
-      path: '/dashboard',
+      path: '/my-dashboard',
       color: theme.palette.primary.main,
     },
     {
       title: 'Notifications',
+      description: 'View system alerts and important updates',
       icon: <NotificationIcon />,
       path: '/notifications',
-      color: theme.palette.warning.main,
+      color: theme.palette.text.primary,
     },
     {
-      title: 'Settings',
+      title: 'My Profile',
+      description: 'Manage your account and preferences',
       icon: <SettingsIcon />,
-      path: '/settings',
-      color: theme.palette.grey[600],
+      path: '/profile',
+      color: theme.palette.text.primary,
     },
   ];
 
@@ -171,62 +201,89 @@ const Home: React.FC = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.03)} 0%, ${alpha(theme.palette.secondary.main, 0.03)} 100%)`,
+        backgroundColor: theme.palette.background.default,
         position: 'relative',
-        overflow: 'hidden',
       }}
     >
-      {/* Background decorative elements */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: -100,
-          right: -100,
-          width: 300,
-          height: 300,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.05)} 0%, transparent 70%)`,
-          zIndex: 0,
-        }}
-      />
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: -150,
-          left: -150,
-          width: 400,
-          height: 400,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${alpha(theme.palette.secondary.main, 0.04)} 0%, transparent 70%)`,
-          zIndex: 0,
-        }}
-      />
 
       <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
         {isAuthenticated ? (
           <Box sx={{ py: 6 }}>
             {/* Quick Actions */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 6, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 8, flexWrap: 'wrap' }}>
               {quickActions.map((action) => (
-                <Tooltip key={action.title} title={action.title}>
-                  <IconButton
-                    onClick={() => navigate(action.path)}
-                    sx={{
-                      width: 56,
-                      height: 56,
-                      backgroundColor: alpha(action.color, 0.1),
-                      color: action.color,
-                      '&:hover': {
-                        backgroundColor: alpha(action.color, 0.2),
-                        transform: 'scale(1.1)',
-                      },
-                      transition: 'all 0.3s ease',
-                    }}
-                  >
-                    {action.icon}
-                  </IconButton>
-                </Tooltip>
+                <Card
+                  key={action.title}
+                  onClick={() => navigate(action.path)}
+                  sx={{
+                    minWidth: 200,
+                    maxWidth: 250,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    border: `1px solid ${theme.palette.divider}`,
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                      borderColor: action.color,
+                    },
+                  }}
+                >
+                  <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                    <Box
+                      sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: '50%',
+                        backgroundColor: action.color === theme.palette.primary.main 
+                          ? alpha(theme.palette.primary.main, 0.1)
+                          : theme.palette.grey[50],
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mb: 2,
+                        mx: 'auto',
+                        border: `2px solid ${action.color === theme.palette.primary.main 
+                          ? alpha(theme.palette.primary.main, 0.2)
+                          : theme.palette.grey[200]}`,
+                      }}
+                    >
+                      {React.cloneElement(action.icon, {
+                        sx: {
+                          fontSize: 24,
+                          color: action.color,
+                        },
+                      })}
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, color: theme.palette.text.primary }}>
+                      {action.title}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: theme.palette.text.secondary, lineHeight: 1.4 }}>
+                      {action.description}
+                    </Typography>
+                  </CardContent>
+                </Card>
               ))}
+            </Box>
+
+            {/* Main Features Section */}
+            <Box sx={{ mb: 6 }}>
+              <Typography variant="h4" sx={{ 
+                fontWeight: 600, 
+                textAlign: 'center', 
+                mb: 2,
+                color: theme.palette.text.primary,
+              }}>
+                HSSE Management Modules
+              </Typography>
+              <Typography variant="body1" sx={{ 
+                textAlign: 'center', 
+                mb: 4,
+                color: theme.palette.text.secondary,
+                maxWidth: '600px',
+                mx: 'auto',
+              }}>
+                Access all your Health, Safety, Security, and Environment management tools
+              </Typography>
             </Box>
 
             {/* Main Features Grid */}
@@ -246,17 +303,6 @@ const Home: React.FC = () => {
                   key={feature.title}
                   sx={{
                     height: '100%',
-                    animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`,
-                    '@keyframes fadeInUp': {
-                      '0%': {
-                        opacity: 0,
-                        transform: 'translateY(30px)',
-                      },
-                      '100%': {
-                        opacity: 1,
-                        transform: 'translateY(0)',
-                      },
-                    },
                   }}
                 >
                   <FeatureCard
@@ -272,25 +318,38 @@ const Home: React.FC = () => {
             </Box>
             {/* Django Admin Panel Link for Superusers */}
             {user?.is_superuser && (
-              <Box sx={{ mt: 6, display: 'flex', justifyContent: 'center' }}>
+              <Box sx={{ mt: 8, display: 'flex', justifyContent: 'center' }}>
                 <Card
                   sx={{
                     minWidth: 320,
                     maxWidth: 400,
-                    p: 3,
+                    p: 4,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    boxShadow: 6,
-                    borderRadius: 3,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
+                    border: `1px solid ${theme.palette.divider}`,
+                    backgroundColor: theme.palette.background.paper,
                   }}
                 >
-                  <AdminPanelSettingsIcon sx={{ fontSize: 48, color: theme.palette.primary.main, mb: 1 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: theme.palette.primary.dark }}>
+                  <Box
+                    sx={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: '50%',
+                      backgroundColor: theme.palette.grey[50],
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mb: 3,
+                      border: `2px solid ${theme.palette.grey[200]}`,
+                    }}
+                  >
+                    <AdminPanelSettingsIcon sx={{ fontSize: 32, color: theme.palette.text.secondary }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: theme.palette.text.primary }}>
                     Django Admin Panel
                   </Typography>
-                  <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mb: 2, textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mb: 3, textAlign: 'center', lineHeight: 1.6 }}>
                     Manage all backend data, categories, users, and more with the full power of Django Admin.
                   </Typography>
                   <Button
@@ -303,15 +362,13 @@ const Home: React.FC = () => {
                       px: 4,
                       py: 1.5,
                       fontWeight: 600,
-                      fontSize: '1.1rem',
-                      borderRadius: 2,
-                      boxShadow: 3,
-                      background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                      fontSize: '1rem',
+                      borderRadius: 1,
                       '&:hover': {
-                        background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
-                        transform: 'translateY(-2px)',
+                        backgroundColor: theme.palette.primary.dark,
+                        transform: 'translateY(-1px)',
                       },
-                      transition: 'all 0.3s',
+                      transition: 'all 0.2s ease',
                     }}
                   >
                     Go to Admin Panel
@@ -327,13 +384,10 @@ const Home: React.FC = () => {
               <Typography
                 variant="h1"
                 sx={{
-                  fontWeight: 800,
-                  fontSize: { xs: '3rem', md: '4.5rem' },
+                  fontWeight: 700,
+                  fontSize: { xs: '3rem', md: '4rem' },
                   mb: 3,
-                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
+                  color: theme.palette.text.primary,
                   textAlign: 'center',
                   lineHeight: 1.2,
                   fontFamily: '"Inter", sans-serif',
@@ -374,17 +428,15 @@ const Home: React.FC = () => {
                   sx={{
                     px: 6,
                     py: 2,
-                    fontSize: '1.2rem',
+                    fontSize: '1.1rem',
                     fontWeight: 600,
                     fontFamily: '"Inter", sans-serif',
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                    boxShadow: '0 8px 25px rgba(0, 82, 212, 0.3)',
+                    backgroundColor: theme.palette.primary.main,
                     '&:hover': {
-                      background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
-                      boxShadow: '0 12px 35px rgba(0, 82, 212, 0.4)',
-                      transform: 'translateY(-2px)',
+                      backgroundColor: theme.palette.primary.dark,
+                      transform: 'translateY(-1px)',
                     },
-                    transition: 'all 0.3s ease',
+                    transition: 'all 0.2s ease',
                   }}
                 >
                   Get Started
@@ -396,18 +448,18 @@ const Home: React.FC = () => {
                   sx={{
                     px: 6,
                     py: 2,
-                    fontSize: '1.2rem',
+                    fontSize: '1.1rem',
                     fontWeight: 600,
                     fontFamily: '"Inter", sans-serif',
                     borderColor: theme.palette.primary.main,
                     color: theme.palette.primary.main,
-                    borderWidth: 2,
+                    borderWidth: 1,
                     '&:hover': {
                       borderColor: theme.palette.primary.dark,
-                      backgroundColor: alpha(theme.palette.primary.main, 0.05),
-                      transform: 'translateY(-2px)',
+                      backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                      transform: 'translateY(-1px)',
                     },
-                    transition: 'all 0.3s ease',
+                    transition: 'all 0.2s ease',
                   }}
                 >
                   Learn More
@@ -432,17 +484,6 @@ const Home: React.FC = () => {
                   key={feature.title}
                   sx={{
                     height: '100%',
-                    animation: `fadeInUp 0.6s ease-out ${index * 0.1 + 0.2}s both`,
-                    '@keyframes fadeInUp': {
-                      '0%': {
-                        opacity: 0,
-                        transform: 'translateY(30px)',
-                      },
-                      '100%': {
-                        opacity: 1,
-                        transform: 'translateY(0)',
-                      },
-                    },
                   }}
                 >
                   <FeatureCard

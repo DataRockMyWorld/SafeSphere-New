@@ -16,6 +16,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Sum, Count, Avg
+from collections import defaultdict
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -313,6 +314,96 @@ class ApproveTemplateAPIView(APIView):
             
         except DocumentTemplate.DoesNotExist:
             return Response({"error": "Template not found"}, status=404)
+
+
+# =============================
+# Document Dashboard API View
+# =============================
+class DocumentDashboardAPIView(APIView):
+    """API endpoint for document management dashboard metrics."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Get basic document counts
+            total_documents = Document.objects.count()
+            
+            # Get documents by status
+            status_counts = Document.objects.values('status').annotate(count=Count('id'))
+            status_dict = {item['status']: item['count'] for item in status_counts}
+            
+            # Get documents by type
+            type_counts = Document.objects.values('document_type').annotate(count=Count('id'))
+            type_dict = {item['document_type']: item['count'] for item in type_counts}
+            
+            # Get change requests count
+            change_requests_count = ChangeRequest.objects.count()
+            
+            # Get recent activities (last 10 workflow entries)
+            recent_activities = ApprovalWorkflow.objects.select_related(
+                'document', 'performed_by'
+            ).order_by('-timestamp')[:10]
+            
+            # Format recent activities
+            activities = []
+            for activity in recent_activities:
+                activities.append({
+                    'id': activity.id,
+                    'document_title': activity.document.title,
+                    'action': activity.action,
+                    'performed_by': activity.performed_by.get_full_name() if activity.performed_by else 'System',
+                    'created_at': activity.timestamp,
+                    'comment': activity.comment
+                })
+            
+            # Calculate percentages for document types
+            document_types = {
+                'policy': type_dict.get('POLICY', 0),
+                'system_document': type_dict.get('SYSTEM DOCUMENT', 0),
+                'procedure': type_dict.get('PROCEDURE', 0),
+                'form': type_dict.get('FORM', 0),
+                'ssow': type_dict.get('SSOW', 0),
+                'other': type_dict.get('OTHER', 0)
+            }
+            
+            # Calculate status percentages
+            status_breakdown = {
+                'draft': status_dict.get('DRAFT', 0),
+                'hsse_review': status_dict.get('HSSE_REVIEW', 0),
+                'ops_review': status_dict.get('OPS_REVIEW', 0),
+                'md_approval': status_dict.get('MD_APPROVAL', 0),
+                'approved': status_dict.get('APPROVED', 0),
+                'rejected': status_dict.get('REJECTED', 0)
+            }
+            
+            # Calculate pending approvals (documents in review stages)
+            pending_approvals = (
+                status_dict.get('HSSE_REVIEW', 0) + 
+                status_dict.get('OPS_REVIEW', 0) + 
+                status_dict.get('MD_APPROVAL', 0)
+            )
+            
+            response_data = {
+                'metrics': {
+                    'total_documents': total_documents,
+                    'pending_approvals': pending_approvals,
+                    'change_requests': change_requests_count,
+                    'approved_documents': status_dict.get('APPROVED', 0),
+                    'rejected_documents': status_dict.get('REJECTED', 0),
+                    'draft_documents': status_dict.get('DRAFT', 0),
+                },
+                'document_types': document_types,
+                'status_breakdown': status_breakdown,
+                'recent_activities': activities
+            }
+            
+            return Response(response_data)
+            
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to fetch dashboard data: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class ChangeRequestApproveAPIView(APIView):
