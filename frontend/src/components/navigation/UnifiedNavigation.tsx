@@ -4,22 +4,21 @@ import {
   Box,
   Drawer,
   List,
-  ListItem,
   ListItemIcon,
   ListItemButton,
+  ListItemText,
   Typography,
   useTheme,
   IconButton,
   useMediaQuery,
-  Tooltip,
   AppBar,
   Toolbar,
   Avatar,
   Menu,
   MenuItem,
-  Badge,
   alpha,
-  Chip,
+  Collapse,
+  Divider,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -27,107 +26,151 @@ import {
   Gavel as LegalIcon,
   Engineering as PPEIcon,
   AdminPanelSettings as AdminIcon,
-  Home as HomeIcon,
-  Notifications as NotificationsIcon,
   AccountCircle,
   Menu as MenuIcon,
   Security as SecurityIcon,
   History as HistoryIcon,
   CheckCircleOutline as ApprovalIcon,
-  Assignment as FormsIcon,
   Assignment as AssignmentIcon,
   Archive as RecordsIcon,
   LowPriority as ChangeRequestIcon,
   Scale as LegalScaleIcon,
   Policy as PolicyIcon,
-  AssignmentTurnedIn as LegalFormsIcon,
   Inventory as InventoryIcon,
-  Assessment as AssessmentIcon,
   Settings as SettingsIcon,
   Person as PersonIcon,
-  Group as GroupIcon,
-  Analytics as AnalyticsIcon,
+  ExpandMore as ExpandMoreIcon,
+  ChevronRight as ChevronRightIcon,
+  LibraryBooks as LibraryIcon,
+  ShoppingCart as PurchasesIcon,
+  AssignmentReturn as ReturnsIcon,
+  ReportProblem as DamageReportsIcon,
+  LocalShipping as VendorsIcon,
+  Assignment as RequestsIcon,
+  AssignmentInd as IssuanceIcon,
+  Inventory2 as StockIcon,
+  BusinessCenter as DepartmentIcon,
+  VpnKey as SecuritySettingsIcon,
+  Tune as SystemSettingsIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../NotificationBell';
 import logo from '../../assets/logo.png';
 
-const DRAWER_WIDTH = 80;
-const EXPANDED_DRAWER_WIDTH = 280;
+const DRAWER_WIDTH = 280;
+const COLLAPSED_DRAWER_WIDTH = 80;
 
-// Module-specific navigation items
-const getModuleNavItems = (module: string) => {
-  switch (module) {
-    case 'Document Management':
-      return [
-        { title: 'Dashboard', icon: <DashboardIcon />, path: '/document-management' },
-        { title: 'Library', icon: <DocumentIcon />, path: '/document-management/library' },
-        { title: 'Records', icon: <RecordsIcon />, path: '/document-management/records' },
-        { title: 'Change Requests', icon: <ChangeRequestIcon />, path: '/document-management/change-request-management' },
-        { title: 'Approvals', icon: <ApprovalIcon />, path: '/document-management/approvals' },
-        { title: 'History', icon: <HistoryIcon />, path: '/document-management/history' },
-      ];
-    case 'Legal Management':
-      return [
-        { title: 'Dashboard', icon: <DashboardIcon />, path: '/legal' },
-        { title: 'Laws & Regulations', icon: <LegalScaleIcon />, path: '/legal/laws' },
-        { title: 'Policies', icon: <PolicyIcon />, path: '/legal/policies' },
-        { title: 'Forms', icon: <LegalFormsIcon />, path: '/legal/forms' },
-      ];
-    case 'PPE Management':
-      return [
-        { title: 'Dashboard', icon: <DashboardIcon />, path: '/ppe' },
-        { title: 'Inventory', icon: <InventoryIcon />, path: '/ppe/inventory' },
-        { title: 'Issuance', icon: <AssignmentIcon />, path: '/ppe/issuance' },
-        { title: 'Maintenance', icon: <SettingsIcon />, path: '/ppe/maintenance' },
-      ];
-    case 'Admin Panel':
-      return [
-        { title: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
-        { title: 'Users', icon: <PersonIcon />, path: '/admin/users' },
-        { title: 'Groups', icon: <GroupIcon />, path: '/admin/groups' },
-        { title: 'Analytics', icon: <AnalyticsIcon />, path: '/admin/analytics' },
-        { title: 'Settings', icon: <SettingsIcon />, path: '/admin/settings' },
-      ];
-    default:
-      return [];
-  }
-};
-
-// Module colors
-const getModuleColor = (module: string) => {
-  switch (module) {
-    case 'Document Management':
-      return '#8b5cf6';
-    case 'Legal Management':
-      return '#f59e0b';
-    case 'PPE Management':
-      return '#10b981';
-    case 'Admin Panel':
-      return '#ef4444';
-    default:
-      return '#3b82f6';
-  }
-};
+// All available modules
+const ALL_MODULES = [
+  {
+    id: 'document-management',
+    title: 'Document Management',
+    icon: <DocumentIcon />,
+    path: '/document-management',
+    items: [
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/document-management' },
+      { title: 'Library', icon: <LibraryIcon />, path: '/document-management/library' },
+      { title: 'Records', icon: <RecordsIcon />, path: '/document-management/records' },
+      { title: 'Change Requests', icon: <ChangeRequestIcon />, path: '/document-management/change-request-management' },
+      { title: 'Approvals', icon: <ApprovalIcon />, path: '/document-management/approvals' },
+      { title: 'History', icon: <HistoryIcon />, path: '/document-management/history' },
+    ],
+  },
+  {
+    id: 'legal',
+    title: 'Legal Compliance',
+    icon: <LegalIcon />,
+    path: '/legal',
+    items: [
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/legal' },
+      { title: 'Compliance Obligations', icon: <LegalScaleIcon />, path: '/legal/register' },
+      { title: 'Annual Review', icon: <HistoryIcon />, path: '/legal/review' },
+      { title: 'Compliance Calendar', icon: <ScheduleIcon />, path: '/legal/calendar' },
+      { title: 'Evidence Management', icon: <DocumentIcon />, path: '/legal/evidence' },
+      { title: 'Law Library', icon: <LibraryIcon />, path: '/legal/library' },
+      { title: 'Change Tracker', icon: <PolicyIcon />, path: '/legal/tracker' },
+    ],
+  },
+  {
+    id: 'ppe',
+    title: 'PPE Management',
+    icon: <PPEIcon />,
+    path: '/ppe',
+    items: [
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/ppe' },
+      { title: 'PPE Register', icon: <AssignmentIcon />, path: '/ppe/register' },
+      { title: 'Stock Position', icon: <StockIcon />, path: '/ppe/stock-position' },
+      { title: 'Inventory', icon: <InventoryIcon />, path: '/ppe/inventory' },
+      { title: 'Purchases', icon: <PurchasesIcon />, path: '/ppe/purchases' },
+      { title: 'Vendors', icon: <VendorsIcon />, path: '/ppe/vendors' },
+      { title: 'Requests', icon: <RequestsIcon />, path: '/ppe/requests' },
+      { title: 'Issuance', icon: <IssuanceIcon />, path: '/ppe/issuance' },
+      { title: 'Returns', icon: <ReturnsIcon />, path: '/ppe/returns' },
+      { title: 'Damage Reports', icon: <DamageReportsIcon />, path: '/ppe/damage-reports' },
+      { title: 'Settings', icon: <SettingsIcon />, path: '/ppe/settings' },
+    ],
+  },
+  {
+    id: 'admin',
+    title: 'Admin Panel',
+    icon: <AdminIcon />,
+    path: '/admin',
+    items: [
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
+      { title: 'Users', icon: <PersonIcon />, path: '/admin/users' },
+      { title: 'Departments', icon: <DepartmentIcon />, path: '/admin/departments' },
+      { title: 'Security', icon: <SecuritySettingsIcon />, path: '/admin/security' },
+      { title: 'Settings', icon: <SystemSettingsIcon />, path: '/admin/settings' },
+    ],
+  },
+];
 
 interface UnifiedNavigationProps {
   children: React.ReactNode;
   currentModule?: string;
 }
 
-const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children, currentModule }) => {
+const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  const [drawerOpen, setDrawerOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
+  const [expandedModules, setExpandedModules] = useState<string[]>([]);
+
+  // Find current module based on path
+  const getCurrentModule = () => {
+    return ALL_MODULES.find(module => location.pathname.startsWith(module.path));
+  };
+
+  const activeModule = getCurrentModule();
+
+  // Auto-expand current module
+  React.useEffect(() => {
+    if (activeModule && !expandedModules.includes(activeModule.id)) {
+      setExpandedModules([activeModule.id]);
+    }
+  }, [activeModule]);
 
   const handleDrawerToggle = () => {
     if (isMobile) {
       setMobileOpen(!mobileOpen);
+    } else {
+      setDrawerOpen(!drawerOpen);
     }
+  };
+
+  const handleModuleExpand = (moduleId: string) => {
+    setExpandedModules(prev =>
+      prev.includes(moduleId)
+        ? prev.filter(id => id !== moduleId)
+        : [...prev, moduleId]
+    );
   };
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -144,8 +187,8 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children, current
     navigate('/login');
   };
 
-  const handleItemClick = (item: any) => {
-    navigate(item.path);
+  const handleNavigation = (path: string) => {
+    navigate(path);
     if (isMobile) {
       setMobileOpen(false);
     }
@@ -155,15 +198,211 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children, current
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
-  const getCurrentModuleInfo = () => {
-    return { 
-      title: currentModule || 'Dashboard', 
-      color: getModuleColor(currentModule || 'Dashboard') 
-    };
-  };
+  const drawerContent = (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Header with Logo and Toggle */}
+      <Box
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: drawerOpen ? 'space-between' : 'center',
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          minHeight: 72,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+        }}
+      >
+        {drawerOpen ? (
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
+              <Box
+                component="img"
+                src={logo}
+                alt="SafeSphere"
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  border: `2px solid ${alpha('#ffffff', 0.3)}`,
+                }}
+              />
+              <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, letterSpacing: '-0.5px' }}>
+                SafeSphere
+              </Typography>
+            </Box>
+            <IconButton onClick={handleDrawerToggle} sx={{ color: 'white' }}>
+              <MenuIcon />
+            </IconButton>
+          </>
+        ) : (
+          <IconButton onClick={handleDrawerToggle} sx={{ color: 'white' }}>
+            <Box component="img" src={logo} alt="SafeSphere" sx={{ width: 32, height: 32, borderRadius: '50%' }} />
+          </IconButton>
+        )}
+      </Box>
 
-  const currentModuleInfo = getCurrentModuleInfo();
-  const moduleNavItems = getModuleNavItems(currentModule || 'Dashboard');
+      {/* Dashboard Button */}
+      <Box sx={{ p: 2 }}>
+        <ListItemButton
+          onClick={() => handleNavigation('/dashboard')}
+          sx={{
+            borderRadius: 0,
+            background: isCurrentPath('/dashboard') 
+              ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
+              : 'transparent',
+            color: isCurrentPath('/dashboard') ? 'white' : theme.palette.text.primary,
+            '&:hover': {
+              background: alpha(theme.palette.primary.main, 0.1),
+            },
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit', minWidth: drawerOpen ? 40 : 0 }}>
+            <DashboardIcon />
+          </ListItemIcon>
+          {drawerOpen && <ListItemText primary="Dashboard" />}
+        </ListItemButton>
+      </Box>
+
+      <Divider />
+
+      {/* Modules Navigation */}
+      <Box sx={{ flex: 1, overflow: 'auto', py: 2 }}>
+        <List sx={{ px: 2 }}>
+          {ALL_MODULES.map((module) => {
+            const isExpanded = expandedModules.includes(module.id);
+            const isModuleActive = activeModule?.id === module.id;
+
+            return (
+              <Box key={module.id} sx={{ mb: 1 }}>
+                {/* Module Header */}
+                <ListItemButton
+                  onClick={() => {
+                    if (drawerOpen) {
+                      handleModuleExpand(module.id);
+                    } else {
+                      handleNavigation(module.path);
+                    }
+                  }}
+                  sx={{
+                    borderRadius: 0,
+                    mb: 0.5,
+                    background: isModuleActive
+                      ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
+                      : 'transparent',
+                    color: isModuleActive ? 'white' : theme.palette.text.primary,
+                    '&:hover': {
+                      background: isModuleActive
+                        ? `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`
+                        : alpha(theme.palette.primary.main, 0.08),
+                    },
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <ListItemIcon sx={{ color: 'inherit', minWidth: drawerOpen ? 40 : 0 }}>
+                    {module.icon}
+                  </ListItemIcon>
+                  {drawerOpen && (
+                    <>
+                      <ListItemText 
+                        primary={module.title}
+                        primaryTypographyProps={{
+                          fontWeight: isModuleActive ? 600 : 500,
+                          fontSize: '0.9rem',
+                        }}
+                      />
+                      {isExpanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
+                    </>
+                  )}
+                </ListItemButton>
+
+                {/* Module Items - Only show when drawer is open and module is expanded */}
+                {drawerOpen && (
+                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                    <List component="div" disablePadding>
+                      {module.items.map((item) => (
+                        <ListItemButton
+                          key={item.path}
+                          onClick={() => handleNavigation(item.path)}
+                          selected={isCurrentPath(item.path)}
+                          sx={{
+                            pl: 4,
+                            py: 1,
+                            borderRadius: 0,
+                            ml: 2,
+                            mb: 0.5,
+                            '&.Mui-selected': {
+                              backgroundColor: alpha(theme.palette.primary.main, 0.12),
+                              borderLeft: `3px solid ${theme.palette.primary.main}`,
+                              '&:hover': {
+                                backgroundColor: alpha(theme.palette.primary.main, 0.16),
+                              },
+                            },
+                            '&:hover': {
+                              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                            },
+                          }}
+                        >
+                          <ListItemIcon sx={{ minWidth: 32, color: theme.palette.text.secondary }}>
+                            {item.icon}
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary={item.title}
+                            primaryTypographyProps={{
+                              fontSize: '0.85rem',
+                              fontWeight: isCurrentPath(item.path) ? 600 : 400,
+                            }}
+                          />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Collapse>
+                )}
+              </Box>
+            );
+          })}
+        </List>
+      </Box>
+
+      <Divider />
+
+      {/* User Profile */}
+      <Box sx={{ p: 2 }}>
+        <ListItemButton
+          onClick={handleUserMenuOpen}
+          sx={{
+            borderRadius: 0,
+            background: alpha(theme.palette.primary.main, 0.08),
+            '&:hover': {
+              background: alpha(theme.palette.primary.main, 0.12),
+            },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: drawerOpen ? 40 : 0 }}>
+            <Avatar
+              sx={{
+                width: 32,
+                height: 32,
+                bgcolor: theme.palette.primary.main,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+              }}
+            >
+              {user?.first_name?.charAt(0) || 'U'}
+            </Avatar>
+          </ListItemIcon>
+          {drawerOpen && (
+            <ListItemText
+              primary={`${user?.first_name || 'User'} ${user?.last_name || ''}`}
+              secondary={user?.email}
+              primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 600 }}
+              secondaryTypographyProps={{ fontSize: '0.75rem' }}
+            />
+          )}
+        </ListItemButton>
+      </Box>
+    </Box>
+  );
 
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>
@@ -176,174 +415,22 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children, current
           keepMounted: true,
         }}
         sx={{
-          width: DRAWER_WIDTH,
+          width: drawerOpen ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH,
           flexShrink: 0,
           '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
+            width: drawerOpen ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH,
             boxSizing: 'border-box',
             border: 'none',
-            borderRadius: 0,
-            background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-            boxShadow: '4px 0 24px rgba(0, 0, 0, 0.15)',
-            overflow: 'visible',
+            borderRight: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            transition: theme.transitions.create('width', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+            overflowX: 'hidden',
           },
         }}
       >
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          {/* SafeSphere Logo at Top */}
-          <Box
-            sx={{
-              p: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderBottom: `1px solid ${alpha('#ffffff', 0.1)}`,
-              minHeight: 80,
-              position: 'relative',
-            }}
-          >
-            <Tooltip title="SafeSphere" placement="right" arrow>
-              <Box
-                component="img"
-                src={logo}
-                alt="SafeSphere Logo"
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  border: `3px solid ${alpha('#ffffff', 0.2)}`,
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    transform: 'scale(1.1) rotate(5deg)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-                    border: `3px solid ${alpha('#ffffff', 0.4)}`,
-                  },
-                }}
-                onClick={() => navigate('/')}
-              />
-            </Tooltip>
-          </Box>
-
-          {/* Navigation Menu */}
-          <Box sx={{ flex: 1, overflow: 'auto', py: 2 }}>
-            <List sx={{ px: 1 }}>
-              {moduleNavItems.map((item) => (
-                <ListItem key={item.title} disablePadding sx={{ mb: 0.5 }}>
-                  <Tooltip 
-                    title={item.title}
-                    placement="right"
-                    arrow
-                    sx={{
-                      '& .MuiTooltip-tooltip': {
-                        backgroundColor: '#1e293b',
-                        color: 'white',
-                        fontSize: '0.875rem',
-                        padding: '12px 16px',
-                        maxWidth: 200,
-                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                        backdropFilter: 'blur(20px)',
-                        '& .MuiTooltip-arrow': {
-                          color: '#1e293b',
-                        },
-                      },
-                    }}
-                  >
-                    <ListItemButton
-                      selected={isCurrentPath(item.path)}
-                      onClick={() => handleItemClick(item)}
-                      sx={{
-                        minHeight: 56,
-                        justifyContent: 'center',
-                        px: 2,
-                        py: 1.5,
-                        borderRadius: 3,
-                        mx: 1,
-                        position: 'relative',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        '&.Mui-selected': {
-                          background: `linear-gradient(135deg, ${currentModuleInfo.color}, ${alpha(currentModuleInfo.color, 0.8)})`,
-                          color: 'white',
-                          boxShadow: `0 8px 24px ${alpha(currentModuleInfo.color, 0.4)}`,
-                          '&:hover': {
-                            background: `linear-gradient(135deg, ${currentModuleInfo.color}, ${alpha(currentModuleInfo.color, 0.9)})`,
-                            transform: 'translateY(-2px)',
-                            boxShadow: `0 12px 32px ${alpha(currentModuleInfo.color, 0.5)}`,
-                          },
-                          '& .MuiListItemIcon-root': {
-                            color: 'white',
-                          },
-                        },
-                        '&:hover': {
-                          backgroundColor: alpha(currentModuleInfo.color, 0.15),
-                          transform: 'translateY(-2px)',
-                          '& .MuiListItemIcon-root': {
-                            color: currentModuleInfo.color,
-                          },
-                        },
-                      }}
-                    >
-                      <ListItemIcon
-                        sx={{
-                          minWidth: 0,
-                          justifyContent: 'center',
-                          color: isCurrentPath(item.path) ? 'white' : alpha('#ffffff', 0.7),
-                          fontSize: '1.5rem',
-                          transition: 'all 0.3s ease',
-                        }}
-                      >
-                        {item.icon}
-                      </ListItemIcon>
-                    </ListItemButton>
-                  </Tooltip>
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-
-          {/* User Profile Section */}
-          <Box
-            sx={{
-              p: 2,
-              borderTop: `1px solid ${alpha('#ffffff', 0.1)}`,
-            }}
-          >
-            <Tooltip 
-              title={
-                <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    {user?.first_name} {user?.last_name}
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                    {user?.email}
-                  </Typography>
-                </Box>
-              }
-              placement="right"
-              arrow
-            >
-              <IconButton
-                onClick={handleUserMenuOpen}
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  background: `linear-gradient(135deg, ${currentModuleInfo.color}, ${alpha(currentModuleInfo.color, 0.8)})`,
-                  color: 'white',
-                  boxShadow: `0 4px 16px ${alpha(currentModuleInfo.color, 0.4)}`,
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'scale(1.05)',
-                    boxShadow: `0 8px 24px ${alpha(currentModuleInfo.color, 0.6)}`,
-                  },
-                }}
-              >
-                <AccountCircle sx={{ fontSize: 24 }} />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
+        {drawerContent}
       </Drawer>
 
       {/* Main Content Area */}
@@ -353,22 +440,52 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children, current
           flexGrow: 1,
           display: 'flex',
           flexDirection: 'column',
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-          ml: { md: `${DRAWER_WIDTH}px` },
+          width: { 
+            md: `calc(100% - ${drawerOpen ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH}px)` 
+          },
+          transition: theme.transitions.create(['width', 'margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
         }}
       >
-        {/* Top App Bar - Minimal */}
+        {/* Top App Bar */}
         <AppBar
           position="static"
           elevation={0}
           sx={{
-            background: 'transparent',
-            color: theme.palette.text.primary,
-            width: '100%',
-            minHeight: 0,
-            height: 0,
+            background: 'white',
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
           }}
         >
+          <Toolbar sx={{ minHeight: '64px !important' }}>
+            {isMobile && (
+              <IconButton
+                onClick={handleDrawerToggle}
+                edge="start"
+                sx={{ mr: 2, color: theme.palette.text.primary }}
+              >
+                <MenuIcon />
+              </IconButton>
+            )}
+            
+            {/* Breadcrumb */}
+            {activeModule && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', color: theme.palette.primary.main }}>
+                  {activeModule.icon}
+                </Box>
+                <Typography variant="h6" sx={{ color: theme.palette.text.primary, fontWeight: 600 }}>
+                  {activeModule.title}
+                </Typography>
+              </Box>
+            )}
+
+            <Box sx={{ flexGrow: 1 }} />
+
+            {/* Notification Bell */}
+            <NotificationBell />
+          </Toolbar>
         </AppBar>
 
         {/* Page Content */}
@@ -376,10 +493,7 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children, current
           sx={{
             flex: 1,
             overflow: 'auto',
-            background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-            width: '100%',
-            height: '100vh',
-            position: 'relative',
+            backgroundColor: theme.palette.background.default,
           }}
         >
           {children}
@@ -395,27 +509,27 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children, current
           sx: {
             mt: 1,
             minWidth: 200,
-            borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            borderRadius: 0,
+            boxShadow: theme.shadows[8],
           },
         }}
       >
-        <MenuItem onClick={handleUserMenuClose}>
+        <MenuItem onClick={() => { handleUserMenuClose(); navigate('/profile'); }}>
           <ListItemIcon>
-            <AccountCircle />
+            <AccountCircle fontSize="small" />
           </ListItemIcon>
           Profile
         </MenuItem>
-        <MenuItem onClick={handleUserMenuClose}>
+        <MenuItem onClick={() => { handleUserMenuClose(); navigate('/profile'); }}>
           <ListItemIcon>
-            <SettingsIcon />
+            <SettingsIcon fontSize="small" />
           </ListItemIcon>
           Settings
         </MenuItem>
+        <Divider />
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
-            <SecurityIcon />
+            <SecurityIcon fontSize="small" />
           </ListItemIcon>
           Logout
         </MenuItem>

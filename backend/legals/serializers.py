@@ -10,9 +10,16 @@ class LawCategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class LawResourceSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    related_obligations_count = serializers.SerializerMethodField()
+    
     class Meta:
         model = LawResource
         fields = '__all__'
+    
+    def get_related_obligations_count(self, obj):
+        """Count obligations that reference this law"""
+        return obj.legal_register_entries.count()
 
 class LawResourceChangeSerializer(serializers.ModelSerializer):
     class Meta:

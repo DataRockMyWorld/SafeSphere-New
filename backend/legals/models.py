@@ -27,10 +27,21 @@ class LawResource(models.Model):
     category = models.ForeignKey(LawCategory, on_delete=models.CASCADE, related_name='resources')
     jurisdiction = models.CharField(max_length=20, choices=JURISDICTION_CHOICES)
     is_repealed = models.BooleanField(default=False)
-    document = models.FileField(upload_to='law_library/')
+    document = models.FileField(upload_to='law_library/', blank=True, null=True)
     summary = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Enhanced fields for Law Library
+    act_number = models.CharField(max_length=100, blank=True, help_text='Official Act/Law number')
+    effective_date = models.DateField(null=True, blank=True, help_text='Date when law became effective')
+    enactment_date = models.DateField(null=True, blank=True, help_text='Date when law was enacted')
+    enforcement_authority = models.CharField(max_length=255, blank=True, help_text='Authority responsible for enforcement')
+    authority_contact = models.CharField(max_length=255, blank=True, help_text='Contact information')
+    amendment_history = models.TextField(blank=True, help_text='History of amendments')
+    key_provisions = models.TextField(blank=True, help_text='Key provisions and requirements')
+    penalties = models.TextField(blank=True, help_text='Penalties for non-compliance')
+    applicability = models.TextField(blank=True, help_text='Who/what this law applies to')
+    official_url = models.URLField(blank=True, help_text='Link to official government source')
 
     def __str__(self):
         return self.title
@@ -69,6 +80,11 @@ class LegalRegisterEntry(models.Model):
     related_legislation = models.ManyToManyField(LawResource, blank=True, related_name='related_entries')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Review cycle fields
+    last_review_date = models.DateField(null=True, blank=True, help_text='Date of last compliance review')
+    next_review_date = models.DateField(null=True, blank=True, help_text='Date when next review is due')
+    review_period_days = models.IntegerField(default=365, help_text='Review cycle in days (default: 365 for yearly)')
+    review_notes = models.TextField(blank=True, help_text='Notes from latest review')
 
     def __str__(self):
         return self.title
@@ -88,6 +104,11 @@ class LegalRegisterDocument(models.Model):
     entry = models.ForeignKey(LegalRegisterEntry, on_delete=models.CASCADE, related_name='documents')
     document = models.FileField(upload_to='legal_register/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_archived = models.BooleanField(default=False, help_text='Whether this document is archived')
+    archived_at = models.DateTimeField(null=True, blank=True, help_text='When this document was archived')
+    review_year = models.IntegerField(null=True, blank=True, help_text='Year this evidence is associated with')
+    document_type = models.CharField(max_length=50, blank=True, help_text='Type of evidence')
+    description = models.TextField(blank=True, help_text='Description of the evidence document')
 
 class LegislationTracker(models.Model):
     STATUS_CHOICES = [

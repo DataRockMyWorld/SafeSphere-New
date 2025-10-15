@@ -22,6 +22,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import BackToHome from './components/BackToHome';
 import Home from './components/Home';
+import Dashboard from './components/Dashboard';
 import Login from './components/Login';
 import Register from './components/Register';
 import Profile from './components/Profile';
@@ -44,7 +45,13 @@ import Records from './components/document/Records';
 
 // Legal Components
 import LegalLayout from './components/legal/LegalLayout';
-import LegalManagementDashboard from './components/legal/LegalManagementDashboard';
+import ComplianceDashboard from './components/legal/ComplianceDashboard';
+import ComplianceObligations from './components/legal/ComplianceObligations';
+import ComplianceReview from './components/legal/ComplianceReview';
+import ComplianceCalendar from './components/legal/ComplianceCalendar';
+import EvidenceManagement from './components/legal/EvidenceManagement';
+import RegulatoryChangeTracker from './components/legal/RegulatoryChangeTracker';
+import ImprovedLawLibrary from './components/legal/ImprovedLawLibrary';
 import LawLibrary from './components/legal/LawLibrary';
 import LegalRegister from './components/legal/LegalRegister';
 import LegislationTracker from './components/legal/LegislationTracker';
@@ -363,6 +370,12 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
+// HomeRedirect component - redirects authenticated users to dashboard
+const HomeRedirect: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Home />;
+};
+
 // Layout component that conditionally renders Navbar
 const Layout: React.FC = () => {
   const location = useLocation();
@@ -370,16 +383,18 @@ const Layout: React.FC = () => {
   const isLegalPage = location.pathname.startsWith('/legal');
   const isPPEPage = location.pathname.startsWith('/ppe');
   const isAdminPage = location.pathname.startsWith('/admin');
+  const isDashboardPage = location.pathname === '/dashboard';
   const isLoginPage = location.pathname === '/login';
   const isRegisterPage = location.pathname === '/register';
   const isPasswordResetPage = location.pathname.startsWith('/reset-password');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAdminPage && !isLoginPage && !isRegisterPage && !isPasswordResetPage && <Navbar />}
+      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAdminPage && !isDashboardPage && !isLoginPage && !isRegisterPage && !isPasswordResetPage && <Navbar />}
       <Box component="main" sx={{ flexGrow: 1 }}>
         <Routes>
-          <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/dashboard" element={<PrivateRoute><UnifiedNavigation currentModule="Dashboard"><Dashboard /></UnifiedNavigation></PrivateRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
@@ -407,10 +422,13 @@ const Layout: React.FC = () => {
 
           {/* Legal Routes */}
           <Route path="/legal" element={<PrivateRoute><LegalLayout /></PrivateRoute>}>
-            <Route index element={<LegalManagementDashboard />} />
-            <Route path="library" element={<LawLibrary />} />
-            <Route path="register" element={<LegalRegister />} />
-            <Route path="tracker" element={<LegislationTracker />} />
+            <Route index element={<ComplianceDashboard />} />
+            <Route path="register" element={<ComplianceObligations />} />
+            <Route path="review" element={<ComplianceReview />} />
+            <Route path="calendar" element={<ComplianceCalendar />} />
+            <Route path="evidence" element={<EvidenceManagement />} />
+            <Route path="library" element={<ImprovedLawLibrary />} />
+            <Route path="tracker" element={<RegulatoryChangeTracker />} />
           </Route>
 
           {/* PPE Routes */}
@@ -461,7 +479,7 @@ const Layout: React.FC = () => {
           </Route>
         </Routes>
       </Box>
-      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAdminPage && !isLoginPage && <Footer />}
+      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAdminPage && !isDashboardPage && !isLoginPage && <Footer />}
       <BackToHome />
     </Box>
   );
