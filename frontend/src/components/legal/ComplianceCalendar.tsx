@@ -325,7 +325,6 @@ const ComplianceCalendar: React.FC = () => {
                     key={day}
                     sx={{
                       aspectRatio: '1',
-                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
                       borderRadius: 1,
                       p: 0.5,
                       position: 'relative',

@@ -108,6 +108,8 @@ INSTALLED_APPS = [
     "legals",
     "ppes",
     "audits",
+    "risks",
+    "trainings",
     "performance",
     "corsheaders",
     "rest_framework",

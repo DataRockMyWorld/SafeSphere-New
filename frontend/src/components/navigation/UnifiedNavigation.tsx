@@ -53,6 +53,10 @@ import {
   VpnKey as SecuritySettingsIcon,
   Tune as SystemSettingsIcon,
   Schedule as ScheduleIcon,
+  FindInPage as FindingsIcon,
+  AssignmentTurnedIn as CAPAIcon,
+  TableChart as AuditTableIcon,
+  Assessment as ReportIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../NotificationBell';
@@ -109,6 +113,32 @@ const ALL_MODULES = [
       { title: 'Returns', icon: <ReturnsIcon />, path: '/ppe/returns' },
       { title: 'Damage Reports', icon: <DamageReportsIcon />, path: '/ppe/damage-reports' },
       { title: 'Settings', icon: <SettingsIcon />, path: '/ppe/settings' },
+    ],
+  },
+  {
+    id: 'audit',
+    title: 'Audit Management',
+    icon: <AssignmentIcon />,
+    path: '/audit',
+    items: [
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/audit/dashboard' },
+      { title: 'Audit Planner', icon: <ScheduleIcon />, path: '/audit/planner' },
+      { title: 'Findings', icon: <FindingsIcon />, path: '/audit/findings' },
+      { title: 'Management Review', icon: <AssignmentIcon />, path: '/audit/management-review' },
+      { title: 'CAPAs', icon: <CAPAIcon />, path: '/audit/capas' },
+      { title: 'Audit Table', icon: <AuditTableIcon />, path: '/audit/table' },
+      { title: 'Reports', icon: <ReportIcon />, path: '/audit/reports' },
+    ],
+  },
+  {
+    id: 'risk',
+    title: 'Risk Management',
+    icon: <AssignmentIcon />,
+    path: '/risks',
+    items: [
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/risks/dashboard' },
+      { title: 'Risk Matrix', icon: <DashboardIcon />, path: '/risks/matrix' },
+      { title: 'Risk Register', icon: <AssignmentIcon />, path: '/risks/register' },
     ],
   },
   {
@@ -203,13 +233,14 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
       {/* Header with Logo and Toggle */}
       <Box
         sx={{
-          p: 2,
+          p: 2.5,
           display: 'flex',
           alignItems: 'center',
           justifyContent: drawerOpen ? 'space-between' : 'center',
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          borderBottom: `1px solid ${alpha('#ffffff', 0.15)}`,
           minHeight: 72,
           background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+          boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.12)}`,
         }}
       >
         {drawerOpen ? (
@@ -421,7 +452,9 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
             width: drawerOpen ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH,
             boxSizing: 'border-box',
             border: 'none',
-            borderRight: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            borderRight: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+            borderRadius: 0,
+            boxShadow: `2px 0 8px ${alpha(theme.palette.common.black, 0.04)}`,
             transition: theme.transitions.create('width', {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
@@ -455,10 +488,11 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
           elevation={0}
           sx={{
             background: 'white',
-            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+            boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.04)}`,
           }}
         >
-          <Toolbar sx={{ minHeight: '64px !important' }}>
+          <Toolbar sx={{ minHeight: '64px !important', px: { xs: 2, sm: 3 } }}>
             {isMobile && (
               <IconButton
                 onClick={handleDrawerToggle}
@@ -494,6 +528,7 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
             flex: 1,
             overflow: 'auto',
             backgroundColor: theme.palette.background.default,
+            p: { xs: 2, sm: 3, md: 4 },
           }}
         >
           {children}

@@ -71,6 +71,27 @@ import DamageReports from './components/ppe/DamageReports';
 import Settings from './components/ppe/Settings';
 import ProtectedPPERoute from './components/ppe/ProtectedPPERoute';
 
+// Audit Components
+import {
+  AuditLayout,
+  AuditDashboard,
+  AuditPlanner,
+  Findings,
+  CAPAManagement,
+  AuditTable,
+  AuditExecution,
+  AuditReports,
+} from './components/audit';
+import ManagementReview from './components/audit/ManagementReview';
+
+// Risk Management Components
+import {
+  RiskLayout,
+  RiskDashboard,
+  RiskMatrix,
+  RiskRegister,
+} from './components/risks';
+
 // Context
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
@@ -382,6 +403,8 @@ const Layout: React.FC = () => {
   const isDocumentManagement = location.pathname.startsWith('/document-management');
   const isLegalPage = location.pathname.startsWith('/legal');
   const isPPEPage = location.pathname.startsWith('/ppe');
+  const isAuditPage = location.pathname.startsWith('/audit');
+  const isRiskPage = location.pathname.startsWith('/risks');
   const isAdminPage = location.pathname.startsWith('/admin');
   const isDashboardPage = location.pathname === '/dashboard';
   const isLoginPage = location.pathname === '/login';
@@ -390,7 +413,7 @@ const Layout: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAdminPage && !isDashboardPage && !isLoginPage && !isRegisterPage && !isPasswordResetPage && <Navbar />}
+      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && !isRegisterPage && !isPasswordResetPage && <Navbar />}
       <Box component="main" sx={{ flexGrow: 1 }}>
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
@@ -429,6 +452,27 @@ const Layout: React.FC = () => {
             <Route path="evidence" element={<EvidenceManagement />} />
             <Route path="library" element={<ImprovedLawLibrary />} />
             <Route path="tracker" element={<RegulatoryChangeTracker />} />
+          </Route>
+
+          {/* Audit Routes */}
+          <Route path="/audit" element={<PrivateRoute><AuditLayout /></PrivateRoute>}>
+            <Route index element={<AuditDashboard />} />
+            <Route path="dashboard" element={<AuditDashboard />} />
+            <Route path="planner" element={<AuditPlanner />} />
+            <Route path="execute/:auditId" element={<AuditExecution />} />
+            <Route path="findings" element={<Findings />} />
+            <Route path="management-review" element={<ManagementReview />} />
+            <Route path="capas" element={<CAPAManagement />} />
+            <Route path="table" element={<AuditTable />} />
+            <Route path="reports" element={<AuditReports />} />
+          </Route>
+
+          {/* Risk Management Routes */}
+          <Route path="/risks" element={<PrivateRoute><RiskLayout /></PrivateRoute>}>
+            <Route index element={<RiskDashboard />} />
+            <Route path="dashboard" element={<RiskDashboard />} />
+            <Route path="matrix" element={<RiskMatrix />} />
+            <Route path="register" element={<RiskRegister />} />
           </Route>
 
           {/* PPE Routes */}
@@ -479,7 +523,7 @@ const Layout: React.FC = () => {
           </Route>
         </Routes>
       </Box>
-      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAdminPage && !isDashboardPage && !isLoginPage && <Footer />}
+      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && <Footer />}
       <BackToHome />
     </Box>
   );

@@ -1,0 +1,72 @@
+services:
+  db_test:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: safesphere_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis_test:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend_test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    command: >
+      bash -c "
+        echo 'Waiting for database...' &&
+        while ! nc -z db_test 5432; do sleep 1; done &&
+        echo 'Database is ready!' &&
+        python manage.py migrate --noinput &&
+        pytest -v --cov=. --cov-report=html --cov-report=term-missing
+      "
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - DEBUG=True
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - DB_NAME=safesphere_test
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=db_test
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis_test:6379/0
+      - CELERY_BROKER_URL=redis://redis_test:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis_test:6379/0
+      - ACCOUNT_LOCKOUT_ATTEMPTS=3
+      - ACCOUNT_LOCKOUT_DURATION=30
+    depends_on:
+      db_test:
+        condition: service_healthy
+      redis_test:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - test_coverage:/app/htmlcov
+    networks:
+      - test_network
+
+volumes:
+  postgres_test_data:
+  test_coverage:
+
+networks:
+  test_network:
+    driver: bridge
+

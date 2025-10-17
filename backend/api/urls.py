@@ -25,6 +25,24 @@ from api.views import (
     RecordViewSet,
     # Document Dashboard
     DocumentDashboardAPIView,
+    # Audit Management Views
+    AuditTypeListView, AuditChecklistTemplateListView, AuditChecklistTemplateDetailView,
+    AuditScoringCriteriaListView, AuditScoreCalculationView, AuditFindingPDFReportView,
+    ISOClause45001ListView, ISOClause45001DetailView,
+    AuditPlanListCreateView, AuditPlanDetailView,
+    AuditChecklistListCreateView, AuditChecklistDetailView,
+    AuditChecklistResponseListCreateView, AuditChecklistResponseDetailView,
+    AuditFindingListCreateView, AuditFindingDetailView,
+    CAPAListCreateView, CAPADetailView, CAPAProgressUpdateCreateView,
+    AuditEvidenceListCreateView, AuditEvidenceDetailView,
+    AuditReportListCreateView, AuditReportDetailView,
+    AuditMeetingListCreateView, AuditCommentListCreateView,
+    AuditDashboardView, BulkCAPAAssignView, MyCAPAsView,
+    SendAuditPlanNotificationView, SendCAPANotificationView, SendFindingNotificationView,
+    CompanySettingsView,
+    # Risk Management Views
+    RiskMatrixConfigView, RiskAssessmentListCreateView, RiskAssessmentDetailView,
+    RiskAssessmentApproveView, RiskDashboardView, RiskExcelExportView, MyRiskAssessmentsView,
     LawCategoryListCreateAPIView,
     LawCategoryRetrieveUpdateDestroyAPIView,
     LawResourceListCreateAPIView,
@@ -177,6 +195,91 @@ urlpatterns = [
     
     path('ppes/bulk/issue/', BulkPPEIssueAPIView.as_view(), name='ppe-bulk-issue'),
     path('ppes/bulk/request-approval/', BulkPPERequestApprovalAPIView.as_view(), name='ppe-bulk-request-approval'),
+    
+    # =============================
+    # Audit Management URLs
+    # =============================
+    
+    # Audit Types
+    path('audits/types/', AuditTypeListView.as_view(), name='audit-type-list'),
+    
+    # Checklist Templates
+    path('audits/templates/', AuditChecklistTemplateListView.as_view(), name='audit-template-list'),
+    path('audits/templates/<int:pk>/', AuditChecklistTemplateDetailView.as_view(), name='audit-template-detail'),
+    
+    # Scoring
+    path('audits/scoring-criteria/', AuditScoringCriteriaListView.as_view(), name='scoring-criteria-list'),
+    path('audits/findings/<uuid:pk>/score/', AuditScoreCalculationView.as_view(), name='finding-score'),
+    path('audits/findings/<uuid:pk>/pdf-report/', AuditFindingPDFReportView.as_view(), name='finding-pdf-report'),
+    
+    # ISO 45001 Clauses
+    path('audits/iso-clauses/', ISOClause45001ListView.as_view(), name='iso-clause-45001-list'),
+    path('audits/iso-clauses/<int:pk>/', ISOClause45001DetailView.as_view(), name='iso-clause-45001-detail'),
+    
+    # Company Settings
+    path('company-settings/', CompanySettingsView.as_view(), name='company-settings'),
+    
+    # Audit Plans
+    path('audits/plans/', AuditPlanListCreateView.as_view(), name='audit-plan-list'),
+    path('audits/plans/<uuid:pk>/', AuditPlanDetailView.as_view(), name='audit-plan-detail'),
+    
+    # Audit Checklists
+    path('audits/checklists/', AuditChecklistListCreateView.as_view(), name='audit-checklist-list'),
+    path('audits/checklists/<uuid:pk>/', AuditChecklistDetailView.as_view(), name='audit-checklist-detail'),
+    
+    # Checklist Responses
+    path('audits/responses/', AuditChecklistResponseListCreateView.as_view(), name='audit-response-list'),
+    path('audits/responses/<uuid:pk>/', AuditChecklistResponseDetailView.as_view(), name='audit-response-detail'),
+    
+    # Findings
+    path('audits/findings/', AuditFindingListCreateView.as_view(), name='audit-finding-list'),
+    path('audits/findings/<uuid:pk>/', AuditFindingDetailView.as_view(), name='audit-finding-detail'),
+    
+    # CAPAs
+    path('audits/capas/', CAPAListCreateView.as_view(), name='capa-list'),
+    path('audits/capas/<uuid:pk>/', CAPADetailView.as_view(), name='capa-detail'),
+    path('audits/capas/my-capas/', MyCAPAsView.as_view(), name='my-capas'),
+    path('audits/capas/progress-update/', CAPAProgressUpdateCreateView.as_view(), name='capa-progress-update'),
+    path('audits/capas/bulk-assign/', BulkCAPAAssignView.as_view(), name='capa-bulk-assign'),
+    
+    # Evidence
+    path('audits/evidence/', AuditEvidenceListCreateView.as_view(), name='audit-evidence-list'),
+    path('audits/evidence/<uuid:pk>/', AuditEvidenceDetailView.as_view(), name='audit-evidence-detail'),
+    
+    # Reports
+    path('audits/reports/', AuditReportListCreateView.as_view(), name='audit-report-list'),
+    path('audits/reports/<uuid:pk>/', AuditReportDetailView.as_view(), name='audit-report-detail'),
+    
+    # Meetings
+    path('audits/meetings/', AuditMeetingListCreateView.as_view(), name='audit-meeting-list'),
+    
+    # Comments
+    path('audits/comments/', AuditCommentListCreateView.as_view(), name='audit-comment-list'),
+    
+    # Dashboard
+    path('audits/dashboard/', AuditDashboardView.as_view(), name='audit-dashboard'),
+    
+    # Email Notifications
+    path('audits/plans/<uuid:pk>/send-notification/', SendAuditPlanNotificationView.as_view(), name='send-audit-notification'),
+    path('audits/capas/<uuid:pk>/send-notification/', SendCAPANotificationView.as_view(), name='send-capa-notification'),
+    path('audits/findings/<uuid:pk>/send-notification/', SendFindingNotificationView.as_view(), name='send-finding-notification'),
+    
+    # ===========================================
+    # RISK MANAGEMENT ENDPOINTS
+    # ===========================================
+    
+    # Risk Matrix
+    path('risks/matrix-config/', RiskMatrixConfigView.as_view(), name='risk-matrix-config'),
+    
+    # Risk Assessments
+    path('risks/assessments/', RiskAssessmentListCreateView.as_view(), name='risk-assessment-list'),
+    path('risks/assessments/<uuid:pk>/', RiskAssessmentDetailView.as_view(), name='risk-assessment-detail'),
+    path('risks/assessments/<uuid:pk>/approve/', RiskAssessmentApproveView.as_view(), name='risk-assessment-approve'),
+    path('risks/my-assessments/', MyRiskAssessmentsView.as_view(), name='my-risk-assessments'),
+    
+    # Risk Dashboard & Exports
+    path('risks/dashboard/', RiskDashboardView.as_view(), name='risk-dashboard'),
+    path('risks/export-excel/', RiskExcelExportView.as_view(), name='risk-export-excel'),
     
     path('', include(router.urls)),
 ]
