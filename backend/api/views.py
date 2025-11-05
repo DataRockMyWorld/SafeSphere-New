@@ -3,14 +3,16 @@ from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from documents.models import (
     ISOClause, Tag, Document, ApprovalWorkflow, 
-    ChangeRequest, DocumentTemplate, Record
+    ChangeRequest, DocumentTemplate, Record, DocumentFolder
 )
 from documents.serializers import (
     ISOClauseSerializer, TagSerializer, DocumentSerializer, 
     ApprovalWorkflowSerializer, ChangeRequestSerializer, 
     DocumentTemplateSerializer, CreateDocumentFromTemplateSerializer,
-    RecordSerializer, RecordApprovalSerializer
+    RecordSerializer, RecordApprovalSerializer, DocumentFolderSerializer
 )
+from quickreports.models import QuickReport
+from quickreports.serializers import QuickReportSerializer, QuickReportReviewSerializer
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -22,7 +24,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from rest_framework.decorators import action
-from .permissions import IsHSSEManager
+from .permissions import IsHSSEManager, LegalCompliancePermission, PPEManagementPermission, AuditManagementPermission, RiskManagementPermission
 from legals.models import (
     LawCategory, LawResource, LawResourceChange,
     LegalRegisterEntry, LegalRegisterComment, LegalRegisterDocument, Position, LegislationTracker
@@ -78,10 +80,12 @@ class DocumentListCreateAPIView(generics.ListCreateAPIView):
                 Q(content__icontains=search)
             )
         
-        # Handle category filtering
+        # Handle category filtering (map folder value to document_type)
         category = self.request.query_params.get('category', None)
         if category:
-            queryset = queryset.filter(document_type=category)
+            # Map SYSTEM_DOCUMENT (folder value) to SYSTEM DOCUMENT (model value)
+            document_type = 'SYSTEM DOCUMENT' if category == 'SYSTEM_DOCUMENT' else category
+            queryset = queryset.filter(document_type=document_type)
         
         return queryset
 
@@ -105,6 +109,99 @@ class DocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
         self.check_object_permissions(self.request, obj)
         return obj
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+
+# =============================
+# Document Folder API Views
+# =============================
+
+class DocumentFolderListCreateAPIView(generics.ListCreateAPIView):
+    """
+    List all folders or create a new folder.
+    Only HSSE Manager and Superadmins can create folders.
+    """
+    queryset = DocumentFolder.objects.filter(is_active=True)
+    serializer_class = DocumentFolderSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Return all active folders, ordered by name."""
+        return DocumentFolder.objects.filter(is_active=True).order_by('name')
+    
+    def get_permissions(self):
+        """Only HSSE Manager/Superadmin can create folders."""
+        if self.request.method == 'POST':
+            user = self.request.user
+            if not (user.position == 'HSSE MANAGER' or user.is_superuser):
+                return [IsHSSEManager()]  # This will raise PermissionDenied
+        return super().get_permissions()
+    
+    def perform_create(self, serializer):
+        """Set created_by and validate permissions."""
+        user = self.request.user
+        if not (user.position == 'HSSE MANAGER' or user.is_superuser):
+            raise PermissionDenied("Only HSSE Managers and Superadmins can create folders.")
+        serializer.save(created_by=user)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+
+class DocumentFolderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a folder.
+    Only HSSE Manager and Superadmins can update/delete.
+    Folders can only be deleted if they are empty.
+    """
+    queryset = DocumentFolder.objects.all()
+    serializer_class = DocumentFolderSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'id'
+    
+    def get_object(self):
+        obj = get_object_or_404(self.get_queryset(), id=self.kwargs["pk"])
+        self.check_object_permissions(self.request, obj)
+        return obj
+    
+    def get_permissions(self):
+        """Only HSSE Manager/Superadmin can update/delete folders."""
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            user = self.request.user
+            if not (user.position == 'HSSE MANAGER' or user.is_superuser):
+                return [IsHSSEManager()]  # This will raise PermissionDenied
+        return super().get_permissions()
+    
+    def perform_update(self, serializer):
+        """Validate permissions before update."""
+        user = self.request.user
+        if not (user.position == 'HSSE MANAGER' or user.is_superuser):
+            raise PermissionDenied("Only HSSE Managers and Superadmins can update folders.")
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """Validate permissions and ensure folder is empty before deletion."""
+        user = self.request.user
+        if not (user.position == 'HSSE MANAGER' or user.is_superuser):
+            raise PermissionDenied("Only HSSE Managers and Superadmins can delete folders.")
+        
+        # Check if folder is empty
+        if not instance.is_empty():
+            document_count = instance.get_document_count()
+            raise PermissionDenied(
+                f"Cannot delete folder '{instance.name}' because it contains {document_count} document(s). "
+                "Please delete all documents in this folder first."
+            )
+        
+        # Soft delete by setting is_active=False
+        instance.is_active = False
+        instance.save()
+    
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
@@ -498,14 +595,107 @@ class MDApprovalAPIView(APIView):
 
 
 # =================================
+# Quick Reports Management
+# =================================
+
+class QuickReportViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing Quick Reports (Accidents, Near Misses, Potential Incidents, Non-Conformities).
+    
+    Features:
+    - All users can submit reports
+    - HSSE Managers/Admins can approve/reject
+    - On approval, automatically creates a Record
+    - Email and in-app notifications
+    """
+    queryset = QuickReport.objects.all().order_by('-created_at')
+    serializer_class = QuickReportSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['report_type', 'severity', 'status', 'reported_by']
+    search_fields = ['report_number', 'title', 'description', 'location']
+    ordering_fields = ['created_at', 'incident_date', 'severity']
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = QuickReport.objects.all() if (user.position == 'HSSE MANAGER' or user.is_superuser) else QuickReport.objects.filter(reported_by=user)
+        return queryset.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(reported_by=self.request.user)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsHSSEManager])
+    def review(self, request, pk=None):
+        """Review (approve/reject) a quick report."""
+        quick_report = self.get_object()
+        serializer = QuickReportReviewSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            action = serializer.validated_data['action']
+            comments = serializer.validated_data.get('comments', '')
+            rejection_reason = serializer.validated_data.get('rejection_reason', '')
+            
+            try:
+                if action == 'approve':
+                    quick_report.approve(request.user, comments)
+                    return Response({
+                        'status': 'Quick report approved',
+                        'message': f'Report {quick_report.report_number} approved and filed as a record.',
+                        'record_number': quick_report.created_record.record_number if quick_report.created_record else None
+                    }, status=status.HTTP_200_OK)
+                else:
+                    quick_report.reject(request.user, rejection_reason)
+                    return Response({
+                        'status': 'Quick report rejected',
+                        'message': f'Report {quick_report.report_number} rejected. Submitter has been notified.'
+                    }, status=status.HTTP_200_OK)
+            except ValueError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def statistics(self, request):
+        """Get quick report statistics."""
+        user = request.user
+        queryset = QuickReport.objects.all() if (user.position == 'HSSE MANAGER' or user.is_superuser) else QuickReport.objects.filter(reported_by=user)
+        
+        stats = {
+            'total': queryset.count(),
+            'pending': queryset.filter(status='PENDING').count(),
+            'approved': queryset.filter(status='APPROVED').count(),
+            'rejected': queryset.filter(status='REJECTED').count(),
+            'by_type': {
+                'accidents': queryset.filter(report_type='ACCIDENT').count(),
+                'near_misses': queryset.filter(report_type='NEAR_MISS').count(),
+                'potential_incidents': queryset.filter(report_type='POTENTIAL_INCIDENT').count(),
+                'non_conformities': queryset.filter(report_type='NON_CONFORMITY').count(),
+            },
+            'by_severity': {
+                'low': queryset.filter(severity='LOW').count(),
+                'medium': queryset.filter(severity='MEDIUM').count(),
+                'high': queryset.filter(severity='HIGH').count(),
+                'critical': queryset.filter(severity='CRITICAL').count(),
+            },
+        }
+        
+        return Response(stats)
+
+
+# =================================
 # Form Template & Record Management
 # =================================
 
 class RecordViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing Records (submitted forms).
-    Users can create (submit) records.
-    HSSE Managers can review, approve, and reject them.
+    
+    Features:
+    - Users can submit records
+    - HSSE Managers/Admins can approve/reject
+    - Auto-approval for Admin/HSSE Manager submissions
+    - Year-based categorization and filtering
+    - Email and in-app notifications
     """
     queryset = Record.objects.all().order_by('-created_at')
     serializer_class = RecordSerializer
@@ -513,31 +703,86 @@ class RecordViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.position == 'HSSE MANAGER' or user.is_staff:
-            return Record.objects.all().order_by('-created_at')
-        return Record.objects.filter(submitted_by=user).order_by('-created_at')
+        queryset = Record.objects.all() if (user.position == 'HSSE MANAGER' or user.is_staff) else Record.objects.filter(submitted_by=user)
+        
+        # Filter by year
+        year = self.request.query_params.get('year', None)
+        if year:
+            queryset = queryset.filter(year=year)
+        
+        # Filter by status
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset.order_by('-created_at')
 
     def perform_create(self, serializer):
         # The form_document_id is expected from the request data
         serializer.save(submitted_by=self.request.user)
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def years(self, request):
+        """Get list of years with record counts."""
+        from django.db.models import Count, Q
+        
+        user = request.user
+        queryset = Record.objects.all() if (user.position == 'HSSE MANAGER' or user.is_staff) else Record.objects.filter(submitted_by=user)
+        
+        years_data = queryset.values('year').annotate(
+            total=Count('id'),
+            pending=Count('id', filter=Q(status='PENDING_REVIEW')),
+            approved=Count('id', filter=Q(status='APPROVED')),
+            rejected=Count('id', filter=Q(status='REJECTED'))
+        ).order_by('-year')
+        
+        return Response(list(years_data))
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def statistics(self, request):
+        """Get record statistics."""
+        user = request.user
+        queryset = Record.objects.all() if (user.position == 'HSSE MANAGER' or user.is_staff) else Record.objects.filter(submitted_by=user)
+        
+        year = request.query_params.get('year', None)
+        if year:
+            queryset = queryset.filter(year=year)
+        
+        stats = {
+            'total': queryset.count(),
+            'pending': queryset.filter(status='PENDING_REVIEW').count(),
+            'approved': queryset.filter(status='APPROVED').count(),
+            'rejected': queryset.filter(status='REJECTED').count(),
+            'by_year': list(queryset.values('year').annotate(count=Count('id')).order_by('-year')),
+        }
+        
+        return Response(stats)
+
     @action(detail=True, methods=['post'], permission_classes=[IsHSSEManager])
     def approve(self, request, pk=None):
+        """Approve a record and send notifications."""
         record = self.get_object()
         try:
             record.approve(request.user)
-            return Response({'status': 'Record approved'}, status=status.HTTP_200_OK)
+            return Response({
+                'status': 'Record approved',
+                'message': f'Record {record.record_number} approved successfully. Notification sent to submitter.'
+            }, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'], permission_classes=[IsHSSEManager])
     def reject(self, request, pk=None):
+        """Reject a record with reason and send notifications."""
         record = self.get_object()
         serializer = RecordApprovalSerializer(data=request.data, context={'action': 'reject'})
         if serializer.is_valid():
             try:
                 record.reject(request.user, reason=serializer.validated_data.get('rejection_reason', ''))
-                return Response({'status': 'Record rejected'}, status=status.HTTP_200_OK)
+                return Response({
+                    'status': 'Record rejected',
+                    'message': f'Record {record.record_number} rejected. Notification sent to submitter.'
+                }, status=status.HTTP_200_OK)
             except ValueError as e:
                 return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -546,46 +791,26 @@ class RecordViewSet(viewsets.ModelViewSet):
 class LawCategoryListCreateAPIView(generics.ListCreateAPIView):
     queryset = LawCategory.objects.all()
     serializer_class = LawCategorySerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_permissions(self):
-        if self.request.method in ['POST']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 class LawCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = LawCategory.objects.all()
     serializer_class = LawCategorySerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 # LawResource Views
 class LawResourceListCreateAPIView(generics.ListCreateAPIView):
     queryset = LawResource.objects.all()
     serializer_class = LawResourceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [LegalCompliancePermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['country', 'category', 'jurisdiction', 'is_repealed']
     search_fields = ['title', 'summary']
-    
-    def get_permissions(self):
-        if self.request.method in ['POST']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
 
 class LawResourceRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = LawResource.objects.all()
     serializer_class = LawResourceSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 # LawResourceChange Views
 class LawResourceChangeListCreateAPIView(generics.ListCreateAPIView):
@@ -612,117 +837,69 @@ class LawResourceChangeRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestr
 class LegalRegisterEntryListCreateAPIView(generics.ListCreateAPIView):
     queryset = LegalRegisterEntry.objects.all()
     serializer_class = LegalRegisterEntrySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [LegalCompliancePermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['country', 'category', 'legislation_reference']
     search_fields = ['title', 'legal_obligation']
-    
-    def get_permissions(self):
-        if self.request.method in ['POST']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
 
 class LegalRegisterEntryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = LegalRegisterEntry.objects.all()
     serializer_class = LegalRegisterEntrySerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 # LegalRegisterComment Views
 class LegalRegisterCommentListCreateAPIView(generics.ListCreateAPIView):
     queryset = LegalRegisterComment.objects.all()
     serializer_class = LegalRegisterCommentSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_permissions(self):
-        if self.request.method in ['POST']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 class LegalRegisterCommentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = LegalRegisterComment.objects.all()
     serializer_class = LegalRegisterCommentSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 # LegalRegisterDocument Views
 class LegalRegisterDocumentListCreateAPIView(generics.ListCreateAPIView):
     queryset = LegalRegisterDocument.objects.all()
     serializer_class = LegalRegisterDocumentSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_permissions(self):
-        if self.request.method in ['POST']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 class LegalRegisterDocumentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = LegalRegisterDocument.objects.all()
     serializer_class = LegalRegisterDocumentSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 # Position Views
 class PositionListCreateAPIView(generics.ListCreateAPIView):
     queryset = Position.objects.all()
     serializer_class = PositionSerializer
-    permission_classes = [IsAuthenticated]
-    def get_permissions(self):
-        if self.request.method in ['POST']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 class PositionRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Position.objects.all()
     serializer_class = PositionSerializer
-    permission_classes = [IsAuthenticated]
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
+    permission_classes = [LegalCompliancePermission]
 
 # LegislationTracker Views
 class LegislationTrackerListCreateAPIView(generics.ListCreateAPIView):
     queryset = LegislationTracker.objects.all()
     serializer_class = LegislationTrackerSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [LegalCompliancePermission]
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-    
-    def get_permissions(self):
-        if self.request.method in ['POST']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
 
 class LegislationTrackerRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = LegislationTracker.objects.all()
     serializer_class = LegislationTrackerSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [LegalCompliancePermission]
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-    
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return super().get_permissions()
 
 # =============================
 # PPE Management Views
@@ -732,7 +909,7 @@ class PPECategoryListCreateAPIView(generics.ListCreateAPIView):
     """API endpoint for listing and creating PPE categories."""
     queryset = PPECategory.objects.all()
     serializer_class = PPECategorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['is_active']
     search_fields = ['name', 'description']
@@ -742,34 +919,24 @@ class PPECategoryListCreateAPIView(generics.ListCreateAPIView):
         context['request'] = self.request
         return context
 
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
-
 
 class PPECategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     """API endpoint for retrieving, updating, and deleting PPE categories."""
     queryset = PPECategory.objects.all()
     serializer_class = PPECategorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
 
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
-
 
 class VendorListCreateAPIView(generics.ListCreateAPIView):
     """API endpoint for listing and creating vendors."""
     queryset = Vendor.objects.all()
     serializer_class = VendorSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['is_active', 'country']
     search_fields = ['name', 'contact_person', 'email']
@@ -779,27 +946,17 @@ class VendorListCreateAPIView(generics.ListCreateAPIView):
         context['request'] = self.request
         return context
 
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
-
 
 class VendorRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     """API endpoint for retrieving, updating, and deleting vendors."""
     queryset = Vendor.objects.all()
     serializer_class = VendorSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
 
 
 class PPEPurchaseListCreateAPIView(generics.ListCreateAPIView):
@@ -824,19 +981,14 @@ class PPEPurchaseRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
     """API endpoint for retrieving, updating, and deleting PPE purchases."""
     queryset = PPEPurchase.objects.all()
     serializer_class = PPEPurchaseSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
+    permission_classes = [PPEManagementPermission]
 
 
 class PPEInventoryListAPIView(generics.ListAPIView):
     """API endpoint for listing PPE inventory."""
     queryset = PPEInventory.objects.all()
     serializer_class = PPEInventorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['ppe_category']
     search_fields = ['ppe_category__name']
@@ -853,18 +1005,13 @@ class PPEIssueListCreateAPIView(generics.ListCreateAPIView):
     """API endpoint for listing and creating PPE issues."""
     queryset = PPEIssue.objects.all().order_by('-issue_date')
     serializer_class = PPEIssueSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['employee', 'ppe_category', 'issued_by']
     search_fields = ['employee__first_name', 'employee__last_name', 'ppe_category__name']
 
     def perform_create(self, serializer):
         serializer.save(issued_by=self.request.user)
-
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
 
 
 class PPEIssueMyIssuesAPIView(generics.ListAPIView):
@@ -884,19 +1031,14 @@ class PPEIssueRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
     """API endpoint for retrieving, updating, and deleting PPE issues."""
     queryset = PPEIssue.objects.all()
     serializer_class = PPEIssueSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
+    permission_classes = [PPEManagementPermission]
 
 
 class PPERequestListCreateAPIView(generics.ListCreateAPIView):
     """API endpoint for listing and creating PPE requests."""
     queryset = PPERequest.objects.all().order_by('-created_at')
     serializer_class = PPERequestSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]  # Allow regular users to create requests
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['employee', 'ppe_category', 'status']
     search_fields = ['employee__first_name', 'employee__last_name', 'ppe_category__name', 'reason']
@@ -917,20 +1059,15 @@ class PPERequestRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVi
     """API endpoint for retrieving, updating, and deleting PPE requests."""
     queryset = PPERequest.objects.all()
     serializer_class = PPERequestSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]  # Allow regular users to view own requests
 
     def get_queryset(self):
         """Filter requests based on user role."""
         queryset = super().get_queryset()
-        if self.request.user.position != 'HSSE MANAGER':
+        if self.request.user.position != 'HSSE MANAGER' and not self.request.user.is_superuser:
             # Regular users can only see their own requests
             queryset = queryset.filter(employee=self.request.user)
         return queryset
-
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
 
 
 class PPERequestApprovalAPIView(APIView):
@@ -979,7 +1116,7 @@ class PPEDamageReportListCreateAPIView(generics.ListCreateAPIView):
     """API endpoint for listing and creating PPE damage reports."""
     queryset = PPEDamageReport.objects.all().order_by('-reported_at')
     serializer_class = PPEDamageReportSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]  # Allow regular users to report damage
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['employee', 'ppe_issue__ppe_category', 'is_approved', 'replacement_issued']
     search_fields = ['employee__first_name', 'employee__last_name', 'damage_description']
@@ -990,7 +1127,7 @@ class PPEDamageReportListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         """Filter reports based on user role."""
         queryset = super().get_queryset()
-        if self.request.user.position != 'HSSE MANAGER':
+        if self.request.user.position != 'HSSE MANAGER' and not self.request.user.is_superuser:
             # Regular users can only see their own reports
             queryset = queryset.filter(employee=self.request.user)
         return queryset
@@ -1005,12 +1142,12 @@ class PPEDamageReportRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroy
     """API endpoint for retrieving, updating, and deleting PPE damage reports."""
     queryset = PPEDamageReport.objects.all()
     serializer_class = PPEDamageReportSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]  # Allow regular users to view own reports
 
     def get_queryset(self):
         """Filter reports based on user role."""
         queryset = super().get_queryset()
-        if self.request.user.position != 'HSSE MANAGER':
+        if self.request.user.position != 'HSSE MANAGER' and not self.request.user.is_superuser:
             # Regular users can only see their own reports
             queryset = queryset.filter(employee=self.request.user)
         return queryset
@@ -1057,7 +1194,7 @@ class PPETransferListCreateAPIView(generics.ListCreateAPIView):
     """API endpoint for listing and creating PPE transfers."""
     queryset = PPETransfer.objects.all().order_by('-transfer_date')
     serializer_class = PPETransferSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['from_employee', 'to_employee', 'status']
     search_fields = ['from_employee__first_name', 'from_employee__last_name', 
@@ -1069,7 +1206,7 @@ class PPETransferListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         """Filter transfers based on user role."""
         queryset = super().get_queryset()
-        if self.request.user.position != 'HSSE MANAGER':
+        if self.request.user.position != 'HSSE MANAGER' and not self.request.user.is_superuser:
             # Regular users can only see transfers involving them
             queryset = queryset.filter(
                 Q(from_employee=self.request.user) | Q(to_employee=self.request.user)
@@ -1081,22 +1218,17 @@ class PPETransferRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
     """API endpoint for retrieving, updating, and deleting PPE transfers."""
     queryset = PPETransfer.objects.all()
     serializer_class = PPETransferSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get_queryset(self):
         """Filter transfers based on user role."""
         queryset = super().get_queryset()
-        if self.request.user.position != 'HSSE MANAGER':
+        if self.request.user.position != 'HSSE MANAGER' and not self.request.user.is_superuser:
             # Regular users can only see transfers involving them
             queryset = queryset.filter(
                 Q(from_employee=self.request.user) | Q(to_employee=self.request.user)
             )
         return queryset
-
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
 
 
 class PPETransferApprovalAPIView(APIView):
@@ -1154,20 +1286,15 @@ class PPEReturnRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVie
     """API endpoint for retrieving, updating, and deleting PPE returns."""
     queryset = PPEReturn.objects.all()
     serializer_class = PPEReturnSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get_queryset(self):
         """Filter returns based on user role."""
         queryset = super().get_queryset()
-        if self.request.user.position != 'HSSE MANAGER':
+        if self.request.user.position != 'HSSE MANAGER' and not self.request.user.is_superuser:
             # Regular users can only see their own returns
             queryset = queryset.filter(employee=self.request.user)
         return queryset
-
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsHSSEManager()]
-        return [IsAuthenticated()]
 
 
 # =============================
@@ -1176,7 +1303,7 @@ class PPEReturnRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVie
 
 class PPEStockPositionAPIView(APIView):
     """API endpoint for PPE stock position summary."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get(self, request):
         categories = PPECategory.objects.all()
@@ -1220,7 +1347,7 @@ class PPEStockPositionAPIView(APIView):
 
 class PPEMovementAPIView(APIView):
     """API endpoint for PPE movement summary."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get(self, request):
         period = request.query_params.get('period', 'this_month')
@@ -1261,7 +1388,7 @@ class PPEMovementAPIView(APIView):
 
 class PPEMostRequestedAPIView(APIView):
     """API endpoint for most requested PPE items."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get(self, request):
         period = request.query_params.get('period', '30')  # days
@@ -1331,7 +1458,7 @@ class PPECostAnalysisAPIView(APIView):
 
 class PPEExpiryAlertsAPIView(APIView):
     """API endpoint for PPE expiry alerts."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get(self, request):
         days_threshold = int(request.query_params.get('days', 30))
@@ -1356,7 +1483,7 @@ class PPEExpiryAlertsAPIView(APIView):
 
 class PPELowStockAlertsAPIView(APIView):
     """API endpoint for PPE low stock alerts."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get(self, request):
         # Get all inventories and filter by low stock in Python
@@ -1377,7 +1504,7 @@ class PPELowStockAlertsAPIView(APIView):
 
 class PPEUserStockAPIView(APIView):
     """API endpoint for user's current PPE stock."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
 
     def get(self, request, user_id=None):
         if user_id and request.user.position == 'HSSE MANAGER':
@@ -1546,7 +1673,7 @@ class PPEPurchaseReceiptListAPIView(generics.ListAPIView):
     """API endpoint for listing purchase receipts."""
     queryset = PPEPurchaseReceipt.objects.all().order_by('-received_date')
     serializer_class = PPEPurchaseReceiptSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PPEManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['purchase__vendor', 'purchase__ppe_category', 'quality_check_passed']
     search_fields = ['purchase__purchase_order_number', 'notes']
@@ -1661,7 +1788,7 @@ from audits.serializers import AuditTypeSerializer, AuditChecklistTemplateSerial
 class AuditTypeListView(generics.ListAPIView):
     """List all active audit types."""
     serializer_class = AuditTypeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def get_queryset(self):
         """Get only active audit types."""
@@ -1671,7 +1798,7 @@ class AuditTypeListView(generics.ListAPIView):
 class AuditChecklistTemplateListView(generics.ListAPIView):
     """List all active checklist templates."""
     serializer_class = AuditChecklistTemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def get_queryset(self):
         """Get templates, optionally filter by audit type."""
@@ -1687,20 +1814,20 @@ class AuditChecklistTemplateListView(generics.ListAPIView):
 class AuditChecklistTemplateDetailView(generics.RetrieveAPIView):
     """Get detailed checklist template with all categories and questions."""
     serializer_class = AuditChecklistTemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     queryset = AuditChecklistTemplate.objects.filter(is_active=True)
 
 
 class AuditScoringCriteriaListView(generics.ListAPIView):
     """List all active scoring criteria."""
     serializer_class = AuditScoringCriteriaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     queryset = AuditScoringCriteria.objects.filter(is_active=True)
 
 
 class AuditScoreCalculationView(APIView):
     """Calculate audit score for a finding."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def get(self, request, pk):
         """Calculate score for a finding."""
@@ -1725,7 +1852,7 @@ class AuditScoreCalculationView(APIView):
 
 class AuditFindingPDFReportView(APIView):
     """Generate PDF report for an audit finding."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def get(self, request, pk):
         """Generate and return PDF report."""
@@ -1786,7 +1913,7 @@ class ISOClause45001DetailView(generics.RetrieveUpdateDestroyAPIView):
 class AuditPlanListCreateView(generics.ListCreateAPIView):
     """List and create audit plans. Only HSSE Manager can create."""
     queryset = AuditPlan.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['audit_type', 'status', 'lead_auditor']
     search_fields = ['audit_code', 'title', 'scope_description']
@@ -1818,7 +1945,7 @@ class AuditPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete audit plan. Only HSSE Manager can modify."""
     queryset = AuditPlan.objects.all()
     serializer_class = AuditPlanDetailSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def perform_update(self, serializer):
         """Only HSSE Manager can update."""
@@ -1837,7 +1964,7 @@ class AuditPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
 class AuditChecklistListCreateView(generics.ListCreateAPIView):
     """List and create checklist items."""
     serializer_class = AuditChecklistSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['audit_plan', 'iso_clause', 'question_type', 'is_mandatory']
     ordering_fields = ['sequence_order']
@@ -1861,7 +1988,7 @@ class AuditChecklistDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete checklist item."""
     queryset = AuditChecklist.objects.all()
     serializer_class = AuditChecklistSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def perform_update(self, serializer):
         """Only HSSE Manager can update."""
@@ -1874,7 +2001,7 @@ class AuditChecklistDetailView(generics.RetrieveUpdateDestroyAPIView):
 class AuditChecklistResponseListCreateView(generics.ListCreateAPIView):
     """List and create checklist responses."""
     serializer_class = AuditChecklistResponseSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['checklist_item', 'conformity_status', 'auditor']
     
@@ -1902,13 +2029,13 @@ class AuditChecklistResponseDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete checklist response."""
     queryset = AuditChecklistResponse.objects.all()
     serializer_class = AuditChecklistResponseSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
 
 
 # Audit Finding Views
 class AuditFindingListCreateView(generics.ListCreateAPIView):
     """List and create audit findings."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['finding_type', 'severity', 'status', 'audit_plan', 'iso_clause']
     search_fields = ['finding_code', 'title', 'description', 'department_affected']
@@ -1941,7 +2068,7 @@ class AuditFindingDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete finding."""
     queryset = AuditFinding.objects.all()
     serializer_class = AuditFindingDetailSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def perform_update(self, serializer):
         """Only HSSE Manager can update."""
@@ -1953,7 +2080,7 @@ class AuditFindingDetailView(generics.RetrieveUpdateDestroyAPIView):
 # CAPA Views
 class CAPAListCreateView(generics.ListCreateAPIView):
     """List and create CAPAs."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['action_type', 'priority', 'status', 'responsible_person']
     search_fields = ['action_code', 'title', 'description']
@@ -1983,7 +2110,7 @@ class CAPADetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete CAPA."""
     queryset = CAPA.objects.all()
     serializer_class = CAPADetailSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def perform_update(self, serializer):
         """Users can update their assigned CAPAs, HSSE Manager can update all."""
@@ -2001,7 +2128,7 @@ class CAPAProgressUpdateCreateView(generics.CreateAPIView):
     """Create progress updates for CAPAs."""
     queryset = CAPAProgressUpdate.objects.all()
     serializer_class = CAPAProgressUpdateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def perform_create(self, serializer):
         """Users can update progress on their assigned CAPAs."""
@@ -2027,7 +2154,7 @@ class AuditEvidenceListCreateView(generics.ListCreateAPIView):
     """List and upload audit evidence."""
     queryset = AuditEvidence.objects.all()
     serializer_class = AuditEvidenceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['file_type', 'audit_plan', 'finding', 'capa']
     
@@ -2063,7 +2190,7 @@ class AuditEvidenceDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete evidence."""
     queryset = AuditEvidence.objects.all()
     serializer_class = AuditEvidenceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
 
 
 # Audit Report Views
@@ -2071,7 +2198,7 @@ class AuditReportListCreateView(generics.ListCreateAPIView):
     """List and create audit reports."""
     queryset = AuditReport.objects.all()
     serializer_class = AuditReportSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'audit_plan']
     
@@ -2096,7 +2223,7 @@ class AuditReportDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update, or delete audit report."""
     queryset = AuditReport.objects.all()
     serializer_class = AuditReportSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
 
 
 # Audit Meeting Views
@@ -2104,7 +2231,7 @@ class AuditMeetingListCreateView(generics.ListCreateAPIView):
     """List and create audit meetings."""
     queryset = AuditMeeting.objects.all()
     serializer_class = AuditMeetingSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['audit_plan', 'meeting_type']
     
@@ -2120,7 +2247,7 @@ class AuditCommentListCreateView(generics.ListCreateAPIView):
     """List and create comments on audits/findings/CAPAs."""
     queryset = AuditComment.objects.all()
     serializer_class = AuditCommentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['audit_plan', 'finding', 'capa']
     
@@ -2132,7 +2259,7 @@ class AuditCommentListCreateView(generics.ListCreateAPIView):
 # Audit Dashboard View
 class AuditDashboardView(APIView):
     """Comprehensive audit dashboard with metrics and analytics."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditManagementPermission]
     
     def get(self, request):
         """Get dashboard data."""
@@ -2485,7 +2612,7 @@ from openpyxl.utils import get_column_letter
 
 class RiskMatrixConfigView(APIView):
     """Get risk matrix configuration."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [RiskManagementPermission]  # Allow read-only for regular users
     
     def get(self, request):
         """Get risk matrix configuration."""
@@ -2496,7 +2623,7 @@ class RiskMatrixConfigView(APIView):
 
 class RiskAssessmentListCreateView(generics.ListCreateAPIView):
     """List all risk assessments or create a new one."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [RiskManagementPermission]  # Allow read-only for regular users
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -2544,7 +2671,7 @@ class RiskAssessmentDetailView(generics.RetrieveUpdateDestroyAPIView):
         'hazards', 'barriers', 'treatment_actions', 'reviews', 'attachments'
     )
     serializer_class = RiskAssessmentDetailSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [RiskManagementPermission]  # Allow read-only for regular users
     
     def perform_update(self, serializer):
         risk_assessment = serializer.save()
@@ -2558,15 +2685,9 @@ class RiskAssessmentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class RiskAssessmentApproveView(APIView):
     """Approve a risk assessment (HSSE Manager only)."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsHSSEManager]  # Only HSSE Manager can approve
     
     def post(self, request, pk):
-        if request.user.position != 'HSSE MANAGER':
-            return Response(
-                {'error': 'Only HSSE Managers can approve risk assessments'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
         risk_assessment = get_object_or_404(RiskAssessment, pk=pk)
         
         risk_assessment.status = 'APPROVED'
@@ -2580,7 +2701,7 @@ class RiskAssessmentApproveView(APIView):
 
 class RiskDashboardView(APIView):
     """Risk dashboard with analytics."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [RiskManagementPermission]  # Dashboard access control
     
     def get(self, request):
         from django.db.models import Count, Q
@@ -2635,7 +2756,7 @@ class RiskDashboardView(APIView):
 
 class RiskExcelExportView(APIView):
     """Export risk assessments to Excel."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [RiskManagementPermission]  # Export access control
     
     def get(self, request):
         """Export all or filtered risk assessments to Excel."""
@@ -2782,7 +2903,7 @@ class RiskExcelExportView(APIView):
 class MyRiskAssessmentsView(generics.ListAPIView):
     """Get risk assessments created by or assigned to current user."""
     serializer_class = RiskAssessmentListSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [RiskManagementPermission]
     
     def get_queryset(self):
         user = self.request.user

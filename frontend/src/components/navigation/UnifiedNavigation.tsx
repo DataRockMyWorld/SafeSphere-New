@@ -76,9 +76,9 @@ const ALL_MODULES = [
       { title: 'Dashboard', icon: <DashboardIcon />, path: '/document-management' },
       { title: 'Library', icon: <LibraryIcon />, path: '/document-management/library' },
       { title: 'Records', icon: <RecordsIcon />, path: '/document-management/records' },
+      { title: 'Quick Reports', icon: <ReportIcon />, path: '/document-management/quick-reports' }, // Replaced History
       { title: 'Change Requests', icon: <ChangeRequestIcon />, path: '/document-management/change-request-management' },
       { title: 'Approvals', icon: <ApprovalIcon />, path: '/document-management/approvals' },
-      { title: 'History', icon: <HistoryIcon />, path: '/document-management/history' },
     ],
   },
   {
@@ -87,13 +87,13 @@ const ALL_MODULES = [
     icon: <LegalIcon />,
     path: '/legal',
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/legal' },
-      { title: 'Compliance Obligations', icon: <LegalScaleIcon />, path: '/legal/register' },
-      { title: 'Annual Review', icon: <HistoryIcon />, path: '/legal/review' },
-      { title: 'Compliance Calendar', icon: <ScheduleIcon />, path: '/legal/calendar' },
-      { title: 'Evidence Management', icon: <DocumentIcon />, path: '/legal/evidence' },
-      { title: 'Law Library', icon: <LibraryIcon />, path: '/legal/library' },
-      { title: 'Change Tracker', icon: <PolicyIcon />, path: '/legal/tracker' },
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/legal', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Compliance Obligations', icon: <LegalScaleIcon />, path: '/legal/register', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Annual Review', icon: <HistoryIcon />, path: '/legal/review', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Compliance Calendar', icon: <ScheduleIcon />, path: '/legal/calendar', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Evidence Management', icon: <DocumentIcon />, path: '/legal/evidence', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Law Library', icon: <LibraryIcon />, path: '/legal/library' }, // Available to all users (read-only)
+      { title: 'Change Tracker', icon: <PolicyIcon />, path: '/legal/tracker', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
     ],
   },
   {
@@ -102,17 +102,17 @@ const ALL_MODULES = [
     icon: <PPEIcon />,
     path: '/ppe',
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/ppe' },
-      { title: 'PPE Register', icon: <AssignmentIcon />, path: '/ppe/register' },
-      { title: 'Stock Position', icon: <StockIcon />, path: '/ppe/stock-position' },
-      { title: 'Inventory', icon: <InventoryIcon />, path: '/ppe/inventory' },
-      { title: 'Purchases', icon: <PurchasesIcon />, path: '/ppe/purchases' },
-      { title: 'Vendors', icon: <VendorsIcon />, path: '/ppe/vendors' },
-      { title: 'Requests', icon: <RequestsIcon />, path: '/ppe/requests' },
-      { title: 'Issuance', icon: <IssuanceIcon />, path: '/ppe/issuance' },
-      { title: 'Returns', icon: <ReturnsIcon />, path: '/ppe/returns' },
-      { title: 'Damage Reports', icon: <DamageReportsIcon />, path: '/ppe/damage-reports' },
-      { title: 'Settings', icon: <SettingsIcon />, path: '/ppe/settings' },
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/ppe', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'PPE Register', icon: <AssignmentIcon />, path: '/ppe/register', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Stock Position', icon: <StockIcon />, path: '/ppe/stock-position', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Inventory', icon: <InventoryIcon />, path: '/ppe/inventory', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Purchases', icon: <PurchasesIcon />, path: '/ppe/purchases', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Vendors', icon: <VendorsIcon />, path: '/ppe/vendors', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Requests', icon: <RequestsIcon />, path: '/ppe/requests' }, // Available to all users - can make requests
+      { title: 'Issuance', icon: <IssuanceIcon />, path: '/ppe/issuance', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Returns', icon: <ReturnsIcon />, path: '/ppe/returns', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Damage Reports', icon: <DamageReportsIcon />, path: '/ppe/damage-reports' }, // Available to all users - can report damage
+      { title: 'Settings', icon: <SettingsIcon />, path: '/ppe/settings', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
     ],
   },
   {
@@ -120,6 +120,7 @@ const ALL_MODULES = [
     title: 'Audit Management',
     icon: <AssignmentIcon />,
     path: '/audit',
+    requiresRole: ['HSSE MANAGER', 'ADMIN'], // Entire module restricted to HSSE Manager/Admin
     items: [
       { title: 'Dashboard', icon: <DashboardIcon />, path: '/audit/dashboard' },
       { title: 'Audit Planner', icon: <ScheduleIcon />, path: '/audit/planner' },
@@ -136,9 +137,9 @@ const ALL_MODULES = [
     icon: <AssignmentIcon />,
     path: '/risks',
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/risks/dashboard' },
-      { title: 'Risk Matrix', icon: <DashboardIcon />, path: '/risks/matrix' },
-      { title: 'Risk Register', icon: <AssignmentIcon />, path: '/risks/register' },
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/risks/dashboard', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Risk Matrix', icon: <DashboardIcon />, path: '/risks/matrix' }, // Available to all users (read-only)
+      { title: 'Risk Register', icon: <AssignmentIcon />, path: '/risks/register' }, // Available to all users (read-only)
     ],
   },
   {
@@ -300,7 +301,18 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
       {/* Modules Navigation */}
       <Box sx={{ flex: 1, overflow: 'auto', py: 2 }}>
         <List sx={{ px: 2 }}>
-          {ALL_MODULES.map((module) => {
+          {ALL_MODULES
+            .filter((module: any) => {
+              // Filter entire modules based on role requirements
+              if (!module.requiresRole) return true; // No role requirement, show to all
+              const userRole = user?.position?.toUpperCase() || '';
+              const isAdmin = user?.is_superuser || false;
+              return (
+                module.requiresRole.includes(userRole) ||
+                (isAdmin && module.requiresRole.includes('ADMIN'))
+              );
+            })
+            .map((module) => {
             const isExpanded = expandedModules.includes(module.id);
             const isModuleActive = activeModule?.id === module.id;
 
@@ -351,7 +363,18 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
                 {drawerOpen && (
                   <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                     <List component="div" disablePadding>
-                      {module.items.map((item) => (
+                      {module.items
+                        .filter((item: any) => {
+                          // Filter items based on role requirements
+                          if (!item.requiresRole) return true; // No role requirement, show to all
+                          const userRole = user?.position?.toUpperCase() || '';
+                          const isAdmin = user?.is_superuser || false;
+                          return (
+                            item.requiresRole.includes(userRole) ||
+                            (isAdmin && item.requiresRole.includes('ADMIN'))
+                          );
+                        })
+                        .map((item: any) => (
                         <ListItemButton
                           key={item.path}
                           onClick={() => handleNavigation(item.path)}

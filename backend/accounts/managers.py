@@ -108,8 +108,8 @@ class UserManager(BaseUserManager):
             reset_code = user.generate_reset_code()
             logger.info(f"Generated reset code for user {user.email}")
             
-            # Use settings to get the frontend URL, with fallback to localhost
-            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+            # Use settings to get the frontend URL, with fallback to localhost:5173
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
             reset_url = f"{frontend_url}/reset-password/{user.pk}/{reset_code}/"
             logger.info(f"Generated reset URL: {reset_url}")
 

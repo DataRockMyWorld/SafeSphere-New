@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -14,6 +14,11 @@ import {
   IconButton,
   Fade,
   Grow,
+  Divider,
+  Checkbox,
+  FormControlLabel,
+  Stack,
+  Chip,
 } from '@mui/material';
 import {
   Visibility,
@@ -21,6 +26,10 @@ import {
   Email,
   Lock,
   ArrowForward,
+  SecurityOutlined,
+  VerifiedUserOutlined,
+  HealthAndSafetyOutlined,
+  ShieldOutlined,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import logoImage from '../assets/logo.png';
@@ -38,6 +47,7 @@ const Login: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -51,7 +61,7 @@ const Login: React.FC = () => {
       await login(formData.email, formData.password);
       navigate('/dashboard');
     } catch (err) {
-      setError('Invalid email or password');
+      setError('Invalid email or password. Please check your credentials and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -76,421 +86,638 @@ const Login: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
+        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.03)} 0%, ${alpha(theme.palette.secondary.main, 0.03)} 100%)`,
         position: 'relative',
         overflow: 'hidden',
-        p: 3,
+        p: 2,
       }}
     >
-      {/* Background Decorative Elements */}
+      {/* Background Pattern */}
       <Box
         sx={{
           position: 'absolute',
-          top: -50,
-          right: -50,
-          width: 200,
-          height: 200,
-          borderRadius: '50%',
-          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage: `
+            radial-gradient(circle at 20% 30%, ${alpha(theme.palette.primary.main, 0.04)} 0%, transparent 50%),
+            radial-gradient(circle at 80% 70%, ${alpha(theme.palette.secondary.main, 0.04)} 0%, transparent 50%)
+          `,
           zIndex: 0,
-          animation: 'fadeIn 2s ease-out',
-          '@keyframes fadeIn': {
-            '0%': { opacity: 0, transform: 'scale(0.8)' },
-            '100%': { opacity: 1, transform: 'scale(1)' },
-          },
         }}
       />
+      
+      {/* Floating Shield Icon */}
       <Box
         sx={{
           position: 'absolute',
-          bottom: -100,
-          left: -100,
-          width: 300,
-          height: 300,
-          borderRadius: '50%',
-          background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.08)} 0%, ${alpha(theme.palette.primary.main, 0.08)} 100%)`,
-          zIndex: 0,
-          animation: 'fadeIn 2s ease-out 0.5s both',
-          '@keyframes fadeIn': {
-            '0%': { opacity: 0, transform: 'scale(0.8)' },
-            '100%': { opacity: 1, transform: 'scale(1)' },
+          top: '10%',
+          right: '8%',
+          opacity: 0.08,
+          animation: 'floatShield 6s ease-in-out infinite',
+          '@keyframes floatShield': {
+            '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
+            '50%': { transform: 'translateY(-20px) rotate(5deg)' },
           },
         }}
-      />
+      >
+        <ShieldOutlined sx={{ fontSize: 120, color: theme.palette.primary.main }} />
+      </Box>
+      
+      {/* Floating Health Icon */}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: '15%',
+          left: '5%',
+          opacity: 0.08,
+          animation: 'floatHealth 7s ease-in-out infinite',
+          '@keyframes floatHealth': {
+            '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
+            '50%': { transform: 'translateY(-25px) rotate(-5deg)' },
+          },
+        }}
+      >
+        <HealthAndSafetyOutlined sx={{ fontSize: 100, color: theme.palette.secondary.main }} />
+      </Box>
 
-      <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-        <Fade in timeout={1000}>
+      <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
+        <Fade in timeout={800}>
           <Paper
             elevation={0}
             sx={{
               display: 'flex',
-              borderRadius: 4,
+              borderRadius: 3,
               overflow: 'hidden',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.08)',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
               background: 'white',
-              maxWidth: 1000,
+              maxWidth: 950,
               mx: 'auto',
-              border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-              backdropFilter: 'blur(10px)',
-              animation: 'slideUp 1.2s ease-out',
-              '@keyframes slideUp': {
-                '0%': { opacity: 0, transform: 'translateY(30px)' },
-                '100%': { opacity: 1, transform: 'translateY(0)' },
-              },
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
             }}
           >
-            {/* Left Side - Logo Section */}
-            <Grow in timeout={1500}>
+            {/* Left Side - Brand & Features Section */}
+            <Box
+              sx={{
+                flex: { md: '0 0 42%' },
+                display: { xs: 'none', md: 'flex' },
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                p: 4,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Grid Pattern Background */}
               <Box
                 sx={{
-                  flex: 1,
-                  display: { xs: 'none', md: 'flex' },
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  p: 6,
-                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                  position: 'relative',
-                  overflow: 'hidden',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundImage: `
+                    linear-gradient(${alpha('#ffffff', 0.05)} 1px, transparent 1px),
+                    linear-gradient(90deg, ${alpha('#ffffff', 0.05)} 1px, transparent 1px)
+                  `,
+                  backgroundSize: '30px 30px',
+                  opacity: 0.5,
                 }}
-              >
-                {/* Subtle Background Pattern */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: `radial-gradient(circle at 20% 80%, ${alpha('#ffffff', 0.1)} 0%, transparent 50%),
-                                radial-gradient(circle at 80% 20%, ${alpha('#ffffff', 0.08)} 0%, transparent 50%)`,
-                    zIndex: 1,
-                    animation: 'gentlePulse 6s ease-in-out infinite',
-                    '@keyframes gentlePulse': {
-                      '0%, 100%': { opacity: 0.6 },
-                      '50%': { opacity: 0.8 },
-                    },
-                  }}
-                />
-                
-                {/* Logo Container */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 2,
-                    textAlign: 'center',
-                  }}
-                >
-                  {/* Logo Image with Gentle Animation */}
+              />
+              
+              {/* Content Container */}
+              <Box sx={{ position: 'relative', zIndex: 2 }}>
+                {/* Logo and Brand */}
+                <Box sx={{ mb: 3 }}>
                   <Box
                     component="img"
                     src={logoImage}
                     alt="SafeSphere Logo"
                     sx={{
-                      width: { md: 160, lg: 200 },
-                      height: 'auto',
-                      mb: 4,
-                      filter: 'drop-shadow(0 8px 32px rgba(0,0,0,0.15))',
-                      animation: 'gentleFloat 4s ease-in-out infinite',
-                      '@keyframes gentleFloat': {
-                        '0%, 100%': { transform: 'translateY(0px)' },
-                        '50%': { transform: 'translateY(-6px)' },
-                      },
-                    }}
-                  />
-                  
-                  {/* Brand Text */}
-                  <Typography
-                    variant="h2"
-                    sx={{
-                      fontWeight: 800,
-                      color: 'white',
-                      mb: 3,
-                      textShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                      fontSize: { md: '2.5rem', lg: '3rem' },
-                      letterSpacing: '-0.02em',
-                      fontFamily: '"Inter", sans-serif',
-                    }}
-                  >
-                    SafeSphere
-                  </Typography>
-                  
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      color: alpha('#ffffff', 0.95),
-                      fontWeight: 400,
-                      textAlign: 'center',
-                      maxWidth: 350,
-                      lineHeight: 1.7,
-                      textShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                      fontSize: '1.1rem',
-                      fontFamily: '"Inter", sans-serif',
-                    }}
-                  >
-                    Comprehensive Health, Safety, Security, and Environment Management System
-                  </Typography>
-
-                  {/* Subtle Decorative Elements */}
-                  <Box
-                    sx={{
-                      mt: 4,
-                      display: 'flex',
-                      gap: 2,
-                      opacity: 0.6,
-                    }}
-                  >
-                    {[...Array(3)].map((_, i) => (
-                      <Box
-                        key={i}
-                        sx={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          background: alpha('#ffffff', 0.7),
-                          animation: `gentleBounce 3s ease-in-out infinite ${i * 0.3}s`,
-                          '@keyframes gentleBounce': {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-6px)' },
-                          },
-                        }}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              </Box>
-            </Grow>
-
-            {/* Right Side - Login Form */}
-            <Grow in timeout={1800}>
-              <Box
-                sx={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  p: { xs: 4, md: 6, lg: 8 },
-                  background: 'white',
-                  position: 'relative',
-                }}
-              >
-                {/* Mobile Logo (only visible on mobile) */}
-                <Box
-                  sx={{
-                    display: { xs: 'flex', md: 'none' },
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    mb: 4,
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={logoImage}
-                    alt="SafeSphere Logo"
-                    sx={{
-                      width: 80,
+                      width: 60,
                       height: 'auto',
                       mb: 2,
+                      filter: 'brightness(0) invert(1) drop-shadow(0 4px 12px rgba(0,0,0,0.1))',
                     }}
                   />
                   <Typography
                     variant="h4"
                     sx={{
                       fontWeight: 700,
-                      color: theme.palette.primary.main,
-                      textAlign: 'center',
+                      color: 'white',
+                      mb: 1,
+                      fontSize: '1.75rem',
+                      letterSpacing: '-0.02em',
                     }}
                   >
                     SafeSphere
                   </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: alpha('#ffffff', 0.95),
+                      fontSize: '0.9rem',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Comprehensive HSSE Management
+                  </Typography>
                 </Box>
 
-                <Box sx={{ width: '100%', maxWidth: 400, mx: 'auto' }}>
+                {/* Feature Highlights */}
+                <Stack spacing={2} sx={{ mt: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box
+                      sx={{
+                        p: 1,
+                        borderRadius: 1.5,
+                        background: alpha('#ffffff', 0.15),
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      <SecurityOutlined sx={{ color: 'white', fontSize: 22 }} />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mb: 0.25, fontSize: '0.9rem' }}>
+                        Enterprise Security
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: alpha('#ffffff', 0.85), lineHeight: 1.4, fontSize: '0.75rem' }}>
+                        Bank-level encryption
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box
+                      sx={{
+                        p: 1,
+                        borderRadius: 1.5,
+                        background: alpha('#ffffff', 0.15),
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      <VerifiedUserOutlined sx={{ color: 'white', fontSize: 22 }} />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mb: 0.25, fontSize: '0.9rem' }}>
+                        Compliance Ready
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: alpha('#ffffff', 0.85), lineHeight: 1.4, fontSize: '0.75rem' }}>
+                        ISO, OSHA standards
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box
+                      sx={{
+                        p: 1,
+                        borderRadius: 1.5,
+                        background: alpha('#ffffff', 0.15),
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      <HealthAndSafetyOutlined sx={{ color: 'white', fontSize: 22 }} />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mb: 0.25, fontSize: '0.9rem' }}>
+                        Safety First
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: alpha('#ffffff', 0.85), lineHeight: 1.4, fontSize: '0.75rem' }}>
+                        Proactive risk management
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Stack>
+              </Box>
+
+              {/* Trust Badges */}
+              <Box sx={{ position: 'relative', zIndex: 2, mt: 3 }}>
+                <Divider sx={{ borderColor: alpha('#ffffff', 0.2), mb: 2 }} />
+                <Typography variant="caption" sx={{ color: alpha('#ffffff', 0.7), display: 'block', mb: 1.5, fontSize: '0.7rem' }}>
+                  Trusted by industry leaders
+                </Typography>
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    label="ISO Certified"
+                    size="small"
+                    sx={{
+                      background: alpha('#ffffff', 0.15),
+                      color: 'white',
+                      border: `1px solid ${alpha('#ffffff', 0.2)}`,
+                      fontWeight: 500,
+                      fontSize: '0.7rem',
+                      height: 24,
+                    }}
+                  />
+                  <Chip
+                    label="SOC 2"
+                    size="small"
+                    sx={{
+                      background: alpha('#ffffff', 0.15),
+                      color: 'white',
+                      border: `1px solid ${alpha('#ffffff', 0.2)}`,
+                      fontWeight: 500,
+                      fontSize: '0.7rem',
+                      height: 24,
+                    }}
+                  />
+                  <Chip
+                    label="GDPR"
+                    size="small"
+                    sx={{
+                      background: alpha('#ffffff', 0.15),
+                      color: 'white',
+                      border: `1px solid ${alpha('#ffffff', 0.2)}`,
+                      fontWeight: 500,
+                      fontSize: '0.7rem',
+                      height: 24,
+                    }}
+                  />
+                </Stack>
+              </Box>
+            </Box>
+
+            {/* Right Side - Login Form */}
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                p: { xs: 3, md: 4 },
+                background: 'white',
+                position: 'relative',
+              }}
+            >
+              {/* Mobile Logo (only visible on mobile) */}
+              <Box
+                sx={{
+                  display: { xs: 'flex', md: 'none' },
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  mb: 3,
+                }}
+              >
+                <Box
+                  component="img"
+                  src={logoImage}
+                  alt="SafeSphere Logo"
+                  sx={{
+                    width: 60,
+                    height: 'auto',
+                    mb: 1.5,
+                  }}
+                />
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontWeight: 700,
+                    color: theme.palette.primary.main,
+                    textAlign: 'center',
+                  }}
+                >
+                  SafeSphere
+                </Typography>
+              </Box>
+
+              <Box sx={{ width: '100%', maxWidth: 380, mx: 'auto' }}>
+                {/* Header */}
+                <Box sx={{ mb: 3 }}>
                   <Typography
                     component="h1"
-                    variant="h3"
+                    variant="h5"
                     sx={{
                       fontWeight: 700,
-                      textAlign: 'center',
-                      mb: 1,
+                      mb: 0.5,
                       color: theme.palette.text.primary,
                       letterSpacing: '-0.02em',
-                      fontFamily: '"Inter", sans-serif',
+                      fontSize: '1.5rem',
                     }}
                   >
                     Welcome Back
                   </Typography>
                   
                   <Typography
-                    variant="body1"
+                    variant="body2"
                     sx={{
-                      textAlign: 'center',
-                      mb: 4,
                       color: theme.palette.text.secondary,
-                      fontSize: '1.1rem',
-                      lineHeight: 1.6,
-                      fontFamily: '"Inter", sans-serif',
+                      fontSize: '0.875rem',
+                      lineHeight: 1.5,
                     }}
                   >
-                    Sign in to your SafeSphere account to continue
+                    Sign in to access your HSSE dashboard
                   </Typography>
+                </Box>
 
-                  {error && (
-                    <Alert 
-                      severity="error" 
-                      sx={{ 
-                        mb: 3, 
+                {error && (
+                  <Alert 
+                    severity="error" 
+                    sx={{ 
+                      mb: 2, 
+                      borderRadius: 2,
+                      py: 0.5,
+                      '& .MuiAlert-message': {
+                        fontSize: '0.85rem',
+                      },
+                    }}
+                  >
+                    {error}
+                  </Alert>
+                )}
+
+                {/* Login Form */}
+                <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+                  <TextField
+                    margin="normal"
+                    required
+                    fullWidth
+                    label="Email Address"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    autoFocus
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="your.email@company.com"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Email sx={{ color: theme.palette.text.secondary, fontSize: 18 }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      mb: 1.5,
+                      '& .MuiOutlinedInput-root': {
                         borderRadius: 2,
-                        boxShadow: '0 4px 12px rgba(244, 67, 54, 0.15)',
-                      }}
-                    >
-                      {error}
-                    </Alert>
-                  )}
-
-                  <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-                    <TextField
-                      margin="normal"
-                      required
-                      fullWidth
-                      label="Email Address"
-                      name="email"
-                      autoComplete="email"
-                      autoFocus
-                      value={formData.email}
-                      onChange={handleChange}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Email sx={{ color: theme.palette.primary.main, fontSize: 20 }} />
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{
-                        mb: 3,
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: 3,
-                          fontSize: '1rem',
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: theme.palette.primary.main,
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: theme.palette.primary.main,
-                            borderWidth: 2,
-                          },
-                        },
-                        '& .MuiInputLabel-root': {
-                          fontSize: '1rem',
-                          '&.Mui-focused': {
-                            color: theme.palette.primary.main,
-                          },
-                        },
-                      }}
-                    />
-                    <TextField
-                      margin="normal"
-                      required
-                      fullWidth
-                      name="password"
-                      label="Password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Lock sx={{ color: theme.palette.primary.main, fontSize: 20 }} />
-                          </InputAdornment>
-                        ),
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              aria-label="toggle password visibility"
-                              onClick={handleClickShowPassword}
-                              edge="end"
-                              sx={{ color: theme.palette.text.secondary }}
-                            >
-                              {showPassword ? <VisibilityOff /> : <Visibility />}
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{
-                        mb: 4,
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: 3,
-                          fontSize: '1rem',
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: theme.palette.primary.main,
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: theme.palette.primary.main,
-                            borderWidth: 2,
-                          },
-                        },
-                        '& .MuiInputLabel-root': {
-                          fontSize: '1rem',
-                          '&.Mui-focused': {
-                            color: theme.palette.primary.main,
-                          },
-                        },
-                      }}
-                    />
-                    <Button
-                      type="submit"
-                      fullWidth
-                      variant="contained"
-                      disabled={isLoading}
-                      endIcon={isLoading ? null : <ArrowForward />}
-                      sx={{
-                        py: 1.8,
-                        borderRadius: 3,
-                        fontWeight: 600,
-                        fontSize: '1.1rem',
-                        textTransform: 'none',
-                        fontFamily: '"Inter", sans-serif',
-                        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                        boxShadow: '0 8px 25px rgba(0, 82, 212, 0.3)',
-                        transition: 'all 0.3s ease',
+                        backgroundColor: alpha(theme.palette.primary.main, 0.02),
                         '&:hover': {
-                          boxShadow: '0 12px 35px rgba(0, 82, 212, 0.4)',
-                          transform: 'translateY(-2px)',
+                          backgroundColor: alpha(theme.palette.primary.main, 0.04),
                         },
-                        '&:active': {
-                          transform: 'translateY(0)',
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
                         },
-                        '&.Mui-disabled': {
-                          background: theme.palette.grey[300],
-                          color: theme.palette.grey[500],
+                      },
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.9rem',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.9rem',
+                      },
+                    }}
+                  />
+
+                  <TextField
+                    margin="normal"
+                    required
+                    fullWidth
+                    name="password"
+                    label="Password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Enter your password"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock sx={{ color: theme.palette.text.secondary, fontSize: 18 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={handleClickShowPassword}
+                            edge="end"
+                            size="small"
+                            sx={{ color: theme.palette.text.secondary }}
+                          >
+                            {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      mb: 0.5,
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                        '&:hover': {
+                          backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        },
+                      },
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.9rem',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.9rem',
+                      },
+                    }}
+                  />
+
+                  {/* Remember Me & Forgot Password */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, mt: 0.5 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          size="small"
+                          sx={{
+                            color: theme.palette.text.secondary,
+                            '&.Mui-checked': {
+                              color: theme.palette.primary.main,
+                            },
+                            padding: '6px',
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" sx={{ color: theme.palette.text.secondary, fontSize: '0.8rem' }}>
+                          Remember me
+                        </Typography>
+                      }
+                    />
+                    <Typography
+                      component={Link}
+                      to="/forgot-password"
+                      variant="body2"
+                      sx={{
+                        color: theme.palette.primary.main,
+                        textDecoration: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.8rem',
+                        '&:hover': {
+                          textDecoration: 'underline',
                         },
                       }}
                     >
-                      {isLoading ? 'Signing In...' : 'Sign In'}
-                    </Button>
+                      Forgot password?
+                    </Typography>
+                  </Box>
+
+                  {/* Sign In Button */}
+                  <Button
+                    type="submit"
+                    fullWidth
+                    variant="contained"
+                    disabled={isLoading}
+                    endIcon={isLoading ? null : <ArrowForward />}
+                    sx={{
+                      py: 1.5,
+                      borderRadius: 2,
+                      fontWeight: 600,
+                      fontSize: '0.95rem',
+                      textTransform: 'none',
+                      background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                      boxShadow: '0 4px 14px rgba(0, 82, 212, 0.25)',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        boxShadow: '0 6px 20px rgba(0, 82, 212, 0.35)',
+                        transform: 'translateY(-1px)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0)',
+                      },
+                      '&.Mui-disabled': {
+                        background: theme.palette.grey[300],
+                        color: theme.palette.grey[500],
+                      },
+                    }}
+                  >
+                    {isLoading ? 'Signing in...' : 'Sign In'}
+                  </Button>
+
+                  {/* Divider */}
+                  <Divider sx={{ my: 2 }}>
+                    <Typography variant="body2" sx={{ color: theme.palette.text.secondary, fontSize: '0.8rem' }}>
+                      or
+                    </Typography>
+                  </Divider>
+
+                  {/* Sign Up Link */}
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: theme.palette.text.secondary, fontSize: '0.8rem' }}>
+                      Don't have an account?{' '}
+                      <Typography
+                        component={Link}
+                        to="/register"
+                        variant="body2"
+                        sx={{
+                          color: theme.palette.primary.main,
+                          textDecoration: 'none',
+                          fontWeight: 600,
+                          '&:hover': {
+                            textDecoration: 'underline',
+                          },
+                        }}
+                      >
+                        Create account
+                      </Typography>
+                    </Typography>
+                  </Box>
+
+                  {/* Security Notice */}
+                  <Box
+                    sx={{
+                      mt: 2.5,
+                      p: 1.5,
+                      borderRadius: 2,
+                      background: alpha(theme.palette.info.main, 0.05),
+                      border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
+                      <SecurityOutlined sx={{ fontSize: 16, color: theme.palette.info.main }} />
+                      <Typography variant="subtitle2" sx={{ color: theme.palette.info.main, fontWeight: 600, fontSize: '0.8rem' }}>
+                        Secure Access
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, lineHeight: 1.4, display: 'block', fontSize: '0.75rem' }}>
+                      Your connection is encrypted with 256-bit SSL.
+                    </Typography>
                   </Box>
                 </Box>
               </Box>
-            </Grow>
+            </Box>
           </Paper>
         </Fade>
 
         {/* Footer Text */}
-        <Typography
-          variant="body2"
-          sx={{
-            mt: 4,
-            textAlign: 'center',
-            color: theme.palette.text.secondary,
-            opacity: 0.8,
-            fontFamily: '"Inter", sans-serif',
-          }}
-        >
-          © 2025 SafeSphere. All rights reserved.
-        </Typography>
+        <Box sx={{ mt: 2.5, textAlign: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: theme.palette.text.secondary,
+              fontSize: '0.8rem',
+              mb: 0.75,
+            }}
+          >
+            © {new Date().getFullYear()} SafeSphere. All rights reserved.
+          </Typography>
+          <Stack 
+            direction="row" 
+            spacing={2} 
+            justifyContent="center"
+            sx={{ mt: 1 }}
+          >
+            <Typography
+              component="a"
+              href="#"
+              variant="caption"
+              sx={{
+                color: theme.palette.text.secondary,
+                textDecoration: 'none',
+                fontSize: '0.75rem',
+                '&:hover': {
+                  color: theme.palette.primary.main,
+                  textDecoration: 'underline',
+                },
+              }}
+            >
+              Privacy Policy
+            </Typography>
+            <Typography
+              component="a"
+              href="#"
+              variant="caption"
+              sx={{
+                color: theme.palette.text.secondary,
+                textDecoration: 'none',
+                fontSize: '0.75rem',
+                '&:hover': {
+                  color: theme.palette.primary.main,
+                  textDecoration: 'underline',
+                },
+              }}
+            >
+              Terms of Service
+            </Typography>
+            <Typography
+              component="a"
+              href="#"
+              variant="caption"
+              sx={{
+                color: theme.palette.text.secondary,
+                textDecoration: 'none',
+                fontSize: '0.75rem',
+                '&:hover': {
+                  color: theme.palette.primary.main,
+                  textDecoration: 'underline',
+                },
+              }}
+            >
+              Support
+            </Typography>
+          </Stack>
+        </Box>
       </Container>
     </Box>
   );

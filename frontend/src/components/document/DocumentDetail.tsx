@@ -17,8 +17,8 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import axiosInstance from '../../utils/axiosInstance';
 
 interface Document {
   id: number;
@@ -53,7 +53,7 @@ const DocumentDetail: React.FC = () => {
 
   const fetchDocument = async (): Promise<void> => {
     try {
-      const response = await axios.get<Document>(`/api/documents/${id}/`);
+      const response = await axiosInstance.get<Document>(`/documents/${id}/`);
       setDocument(response.data);
       setLoading(false);
     } catch (err) {
@@ -65,8 +65,8 @@ const DocumentDetail: React.FC = () => {
   const handleDelete = async (): Promise<void> => {
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
-        await axios.delete(`/api/documents/${id}/`);
-        navigate('/documents');
+        await axiosInstance.delete(`/documents/${id}/`);
+        navigate('/document-management/library');
       } catch (err) {
         setError('Failed to delete document');
       }
@@ -75,7 +75,7 @@ const DocumentDetail: React.FC = () => {
 
   const handleVerify = async (): Promise<void> => {
     try {
-      await axios.post(`/api/documents/verify/`, { document_id: id });
+      await axiosInstance.post(`/documents/verify/`, { document_id: id });
       fetchDocument();
     } catch (err) {
       setError('Failed to verify document');
@@ -84,7 +84,7 @@ const DocumentDetail: React.FC = () => {
 
   const handleApprove = async (): Promise<void> => {
     try {
-      await axios.post(`/api/documents/approve/`, { document_id: id });
+      await axiosInstance.post(`/documents/approve/`, { document_id: id });
       fetchDocument();
     } catch (err) {
       setError('Failed to approve document');
@@ -95,7 +95,7 @@ const DocumentDetail: React.FC = () => {
     const reason = window.prompt('Please enter rejection reason:');
     if (reason) {
       try {
-        await axios.post(`/api/documents/reject/`, {
+        await axiosInstance.post(`/documents/reject/`, {
           document_id: id,
           reason,
         });

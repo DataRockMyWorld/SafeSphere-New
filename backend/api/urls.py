@@ -4,6 +4,8 @@ from api import views
 from api.views import (
     DocumentListCreateAPIView,
     DocumentRetrieveUpdateDestroyAPIView,
+    DocumentFolderListCreateAPIView,
+    DocumentFolderRetrieveUpdateDestroyAPIView,
     ISOClauseListCreateAPIView,
     TagListCreateAPIView,
     ChangeRequestListCreateAPIView,
@@ -80,12 +82,15 @@ from api.views import (
 # Router for ViewSets
 router = DefaultRouter()
 router.register(r'records', RecordViewSet, basename='record')
+router.register(r'quick-reports', views.QuickReportViewSet, basename='quickreport')
 
 urlpatterns = [
     path('health/', health_check, name='health_check'),
     path('system-info/', system_info, name='system_info'),
     path('documents/', DocumentListCreateAPIView.as_view(), name='document-list-create'),
     path('documents/<uuid:pk>/', DocumentRetrieveUpdateDestroyAPIView.as_view(), name='document-retrieve-update-destroy'),
+    path('documents/folders/', DocumentFolderListCreateAPIView.as_view(), name='document-folder-list-create'),
+    path('documents/folders/<uuid:pk>/', DocumentFolderRetrieveUpdateDestroyAPIView.as_view(), name='document-folder-retrieve-update-destroy'),
     path('documents/iso-clauses/', ISOClauseListCreateAPIView.as_view(), name='iso-clause-list-create'),
     path('documents/tags/', TagListCreateAPIView.as_view(), name='tag-list-create'),
     path('documents/change-requests/', ChangeRequestListCreateAPIView.as_view(), name='change-request-list-create'),

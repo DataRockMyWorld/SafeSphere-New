@@ -85,28 +85,70 @@ class LoginSerializer(serializers.ModelSerializer):
         password = attrs.get('password')
         request = self.context.get('request')
         
+        logger.info(f"=== LOGIN ATTEMPT START ===")
         logger.info(f"Login attempted by {email}")
+        logger.debug(f"Request data: email={email}, password={'*' * len(password) if password else 'None'}")
         
+        User = get_user_model()
+        
+        # Try to get user first to check account lock status
+        try:
+            user_obj = User.objects.get(email=email)
+            logger.debug(f"User found in database: id={user_obj.id}, email={user_obj.email}, is_active={user_obj.is_active}, is_account_locked={user_obj.is_account_locked()}")
+            
+            # Check if account is locked
+            if user_obj.is_account_locked():
+                logger.warning(f"Failed login attempt for email: {mask_email(email)} - Account is locked")
+                raise AuthenticationFailed(f"Account is temporarily locked. Please try again later.")
+            
+            # Check if account is inactive
+            if not user_obj.is_active:
+                logger.warning(f"Failed login attempt for email: {mask_email(email)} - Account is inactive")
+                raise AuthenticationFailed("Account is inactive. Please contact support.")
+            
+        except User.DoesNotExist:
+            # User doesn't exist, will be caught by authenticate()
+            logger.debug(f"User with email {email} does not exist in database")
+            pass
+        
+        # Authenticate user
+        logger.debug(f"Calling authenticate() with email={email}")
         user = authenticate(request, email=email, password=password)
-        if not user:
-            logger.warning(f"Failed login attempt for email: {mask_email(email)} - Invalid credentials")
-            raise AuthenticationFailed("Invalid credentials. Please try again.")
+        logger.debug(f"authenticate() returned: {user}")
         
-        if not user.is_active:
-            logger.warning(f"Failed login attempt for email: {mask_email(email)} - Account is inactive")
-            raise AuthenticationFailed("Account is inactive. Please contact support.")
+        if not user:
+            # Record failed login attempt if user exists
+            try:
+                user_obj = User.objects.get(email=email)
+                user_obj.record_failed_login()
+                logger.warning(f"Failed login attempt for email: {mask_email(email)} - Invalid credentials (attempt {user_obj.failed_login_attempts})")
+            except User.DoesNotExist:
+                logger.warning(f"Failed login attempt for email: {mask_email(email)} - User does not exist")
+            
+            raise AuthenticationFailed("Invalid email or password. Please try again.")
+        
+        # Reset failed login attempts on successful authentication
+        user.reset_failed_login_attempts()
+        logger.info(f"Successful login for email: {mask_email(email)}")
 
-        # Generate tokens using custom claims
-        tokens_serializer = CustomTokenObtainPairSerializer(data={"email": email, "password": password})
-        tokens_serializer.is_valid(raise_exception=True)
-        tokens = tokens_serializer.validated_data
+        # Generate tokens directly using CustomTokenObtainPairSerializer.get_token
+        # Since we already authenticated, we don't need to call validate() again
+        refresh_token = CustomTokenObtainPairSerializer.get_token(user)
+        access_token = refresh_token.access_token
         
         # Add user to validated data
         attrs['user'] = user
         
         # Return tokens and user data
         return {
-            **tokens,
+            'refresh': str(refresh_token),
+            'access': str(access_token),
+            'email': user.email,
+            'full_name': user.get_full_name,
+            'role': user.role,
+            'phone_number': user.phone_number,
+            'department': str(user.department) if user.department else None,
+            'position': str(user.position) if user.position else None,
             'user': {
                 'id': user.id,
                 'email': user.email,

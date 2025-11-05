@@ -31,11 +31,12 @@ schema_view = get_schema_view(
 urlpatterns = [
     # Admin URLs
     path('admin/', admin.site.urls),
-    path('api/v1/', include('accounts.urls')),
+    
+    # API URLs (includes auth endpoints from accounts.urls)
+    path('api/v1/auth/', include('accounts.urls')),
     path('api/v1/', include('api.urls')),
-    path("api/v1/auth/login/", LoginUserView.as_view(), name="login"),
-    path('api/v1/auth/password-reset-confirm/<int:user_id>/<str:reset_code>/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
-    path('api/v1/auth/logout/', LogoutUserView.as_view(), name='logout'),
+    
+    # Token refresh (different prefix)
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     # API Documentation

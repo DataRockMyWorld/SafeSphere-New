@@ -33,7 +33,7 @@ const PasswordReset: React.FC = () => {
   const onFinish = async (values: PasswordResetFormData) => {
     try {
       setLoading(true);
-      await axiosInstance.post(`/auth/password-reset-confirm/${user_id}/${reset_code}/`, values);
+      await axiosInstance.post(`/auth/password-reset/${user_id}/${reset_code}/`, values);
       message.success('Password reset successful! You can now log in with your new password.');
       navigate('/login');
     } catch (error: any) {

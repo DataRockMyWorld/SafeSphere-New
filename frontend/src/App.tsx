@@ -1,110 +1,122 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 
-// Common components
+// Common components (loaded immediately - small & used everywhere)
 import ErrorBoundary from './components/common/ErrorBoundary';
 import NotificationProvider from './components/common/NotificationSystem';
 
-// Import Inter font
-import '@fontsource/inter/300.css';
+// Optimize Inter font - only load needed weights with font-display swap
 import '@fontsource/inter/400.css';
-import '@fontsource/inter/500.css';
 import '@fontsource/inter/600.css';
 import '@fontsource/inter/700.css';
-import '@fontsource/inter/800.css';
-import '@fontsource/inter/900.css';
 
-// Components
+// Core navigation components (loaded immediately)
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import BackToHome from './components/BackToHome';
-import Home from './components/Home';
-import Dashboard from './components/Dashboard';
-import Login from './components/Login';
-import Register from './components/Register';
-import Profile from './components/Profile';
-import PasswordReset from './components/PasswordReset';
-import UnifiedNavigation from './components/navigation/UnifiedNavigation';
 
-// Document Components
-import DocumentManagementDashboard from './components/document/DocumentManagementDashboard';
-import DocumentManagementLayout from './components/document/DocumentManagementLayout';
-import DocumentList from './components/document/DocumentList';
-import DocumentDetail from './components/document/DocumentDetail';
-import DocumentLibrary from './components/document/DocumentLibrary';
-import DocumentEditor from './components/document/DocumentEditor';
-import ChangeRequest from './components/document/ChangeRequest';
-import ChangeRequestManagement from './components/document/ChangeRequestManagement';
-import DocumentHistory from './components/document/DocumentHistory';
-import ApprovalWorkflow from './components/document/ApprovalWorkflow';
-import SearchDocuments from './components/document/SearchDocuments';
-import Records from './components/document/Records';
-
-// Legal Components
-import LegalLayout from './components/legal/LegalLayout';
-import ComplianceDashboard from './components/legal/ComplianceDashboard';
-import ComplianceObligations from './components/legal/ComplianceObligations';
-import ComplianceReview from './components/legal/ComplianceReview';
-import ComplianceCalendar from './components/legal/ComplianceCalendar';
-import EvidenceManagement from './components/legal/EvidenceManagement';
-import RegulatoryChangeTracker from './components/legal/RegulatoryChangeTracker';
-import ImprovedLawLibrary from './components/legal/ImprovedLawLibrary';
-import LawLibrary from './components/legal/LawLibrary';
-import LegalRegister from './components/legal/LegalRegister';
-import LegislationTracker from './components/legal/LegislationTracker';
-
-// PPE Components
-import PPEManagementLayout from './components/ppe/PPEManagementLayout';
-import PPEDashboard from './components/ppe/PPEDashboard';
-import PPERegister from './components/ppe/PPERegister';
-import StockPosition from './components/ppe/StockPosition';
-import InventoryManagement from './components/ppe/InventoryManagement';
-import Purchases from './components/ppe/Purchases';
-import Vendors from './components/ppe/Vendors';
-import Requests from './components/ppe/Requests';
-import Issuance from './components/ppe/Issuance';
-import Returns from './components/ppe/Returns';
-import DamageReports from './components/ppe/DamageReports';
-import Settings from './components/ppe/Settings';
-import ProtectedPPERoute from './components/ppe/ProtectedPPERoute';
-
-// Audit Components
-import {
-  AuditLayout,
-  AuditDashboard,
-  AuditPlanner,
-  Findings,
-  CAPAManagement,
-  AuditTable,
-  AuditExecution,
-  AuditReports,
-} from './components/audit';
-import ManagementReview from './components/audit/ManagementReview';
-
-// Risk Management Components
-import {
-  RiskLayout,
-  RiskDashboard,
-  RiskMatrix,
-  RiskRegister,
-} from './components/risks';
-
-// Context
+// Context providers (loaded immediately)
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
 import { PPEPermissionProvider } from './context/PPEPermissionContext';
 
-// Admin Components
-import AdminLayout from './components/admin/AdminLayout';
-import AdminDashboard from './components/admin/AdminDashboard';
-import UserManagement from './components/admin/UserManagement';
-import DepartmentManagement from './components/admin/DepartmentManagement';
-import SecuritySettings from './components/admin/SecuritySettings';
-import SystemSettings from './components/admin/SystemSettings';
-import ProtectedAdminRoute from './components/admin/ProtectedAdminRoute';
+// Lazy load route components for code splitting
+const Home = lazy(() => import('./components/Home'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Login = lazy(() => import('./components/Login'));
+const Register = lazy(() => import('./components/Register'));
+const Profile = lazy(() => import('./components/Profile'));
+const PasswordReset = lazy(() => import('./components/PasswordReset'));
+const UnifiedNavigation = lazy(() => import('./components/navigation/UnifiedNavigation'));
+
+// Document Components - lazy loaded
+const DocumentManagementDashboard = lazy(() => import('./components/document/DocumentManagementDashboard'));
+const DocumentManagementLayout = lazy(() => import('./components/document/DocumentManagementLayout'));
+const DocumentList = lazy(() => import('./components/document/DocumentList'));
+const DocumentDetail = lazy(() => import('./components/document/DocumentDetail'));
+const DocumentLibrary = lazy(() => import('./components/document/DocumentLibrary'));
+const DocumentEditor = lazy(() => import('./components/document/DocumentEditor'));
+const ChangeRequest = lazy(() => import('./components/document/ChangeRequest'));
+const ChangeRequestManagement = lazy(() => import('./components/document/ChangeRequestManagement'));
+const QuickReports = lazy(() => import('./components/document/QuickReports'));
+const ApprovalWorkflow = lazy(() => import('./components/document/ApprovalWorkflow'));
+const SearchDocuments = lazy(() => import('./components/document/SearchDocuments'));
+const Records = lazy(() => import('./components/document/Records'));
+
+// Legal Components - lazy loaded
+const LegalLayout = lazy(() => import('./components/legal/LegalLayout'));
+const ComplianceDashboard = lazy(() => import('./components/legal/ComplianceDashboard'));
+const ComplianceObligations = lazy(() => import('./components/legal/ComplianceObligations'));
+const ComplianceReview = lazy(() => import('./components/legal/ComplianceReview'));
+const ComplianceCalendar = lazy(() => import('./components/legal/ComplianceCalendar'));
+const EvidenceManagement = lazy(() => import('./components/legal/EvidenceManagement'));
+const RegulatoryChangeTracker = lazy(() => import('./components/legal/RegulatoryChangeTracker'));
+const ImprovedLawLibrary = lazy(() => import('./components/legal/ImprovedLawLibrary'));
+const LawLibrary = lazy(() => import('./components/legal/LawLibrary'));
+const LegalRegister = lazy(() => import('./components/legal/LegalRegister'));
+const LegislationTracker = lazy(() => import('./components/legal/LegislationTracker'));
+
+// PPE Components - lazy loaded
+const PPEManagementLayout = lazy(() => import('./components/ppe/PPEManagementLayout'));
+const PPEDashboard = lazy(() => import('./components/ppe/PPEDashboard'));
+const PPERegister = lazy(() => import('./components/ppe/PPERegister'));
+const StockPosition = lazy(() => import('./components/ppe/StockPosition'));
+const InventoryManagement = lazy(() => import('./components/ppe/InventoryManagement'));
+const Purchases = lazy(() => import('./components/ppe/Purchases'));
+const Vendors = lazy(() => import('./components/ppe/Vendors'));
+const Requests = lazy(() => import('./components/ppe/Requests'));
+const Issuance = lazy(() => import('./components/ppe/Issuance'));
+const Returns = lazy(() => import('./components/ppe/Returns'));
+const DamageReports = lazy(() => import('./components/ppe/DamageReports'));
+const Settings = lazy(() => import('./components/ppe/Settings'));
+const ProtectedPPERoute = lazy(() => import('./components/ppe/ProtectedPPERoute'));
+
+// Audit Components - lazy loaded
+const AuditLayout = lazy(() => import('./components/audit').then(m => ({ default: m.AuditLayout })));
+const AuditDashboard = lazy(() => import('./components/audit').then(m => ({ default: m.AuditDashboard })));
+const AuditPlanner = lazy(() => import('./components/audit').then(m => ({ default: m.AuditPlanner })));
+const Findings = lazy(() => import('./components/audit').then(m => ({ default: m.Findings })));
+const CAPAManagement = lazy(() => import('./components/audit').then(m => ({ default: m.CAPAManagement })));
+const AuditTable = lazy(() => import('./components/audit').then(m => ({ default: m.AuditTable })));
+const AuditExecution = lazy(() => import('./components/audit').then(m => ({ default: m.AuditExecution })));
+const AuditReports = lazy(() => import('./components/audit').then(m => ({ default: m.AuditReports })));
+const ManagementReview = lazy(() => import('./components/audit/ManagementReview'));
+
+// Risk Management Components - lazy loaded
+const RiskLayout = lazy(() => import('./components/risks').then(m => ({ default: m.RiskLayout })));
+const RiskDashboard = lazy(() => import('./components/risks').then(m => ({ default: m.RiskDashboard })));
+const RiskMatrix = lazy(() => import('./components/risks').then(m => ({ default: m.RiskMatrix })));
+const RiskRegister = lazy(() => import('./components/risks').then(m => ({ default: m.RiskRegister })));
+
+// Admin Components - lazy loaded
+const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
+const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
+const UserManagement = lazy(() => import('./components/admin/UserManagement'));
+const DepartmentManagement = lazy(() => import('./components/admin/DepartmentManagement'));
+const SecuritySettings = lazy(() => import('./components/admin/SecuritySettings'));
+const SystemSettings = lazy(() => import('./components/admin/SystemSettings'));
+const ProtectedAdminRoute = lazy(() => import('./components/admin/ProtectedAdminRoute'));
+
+// Loading fallback component
+const LoadingFallback: React.FC = () => (
+  <Box
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      flexDirection: 'column',
+      gap: 2,
+    }}
+  >
+    <CircularProgress size={48} />
+    <Box sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>Loading...</Box>
+  </Box>
+);
 
 const theme = createTheme({
   palette: {
@@ -415,7 +427,8 @@ const Layout: React.FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && !isRegisterPage && !isPasswordResetPage && <Navbar />}
       <Box component="main" sx={{ flexGrow: 1 }}>
-        <Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/dashboard" element={<PrivateRoute><UnifiedNavigation currentModule="Dashboard"><Dashboard /></UnifiedNavigation></PrivateRoute>} />
           <Route path="/login" element={<Login />} />
@@ -437,9 +450,9 @@ const Layout: React.FC = () => {
             <Route path="library/:id" element={<DocumentDetail />} />
             <Route path="library/:id/edit" element={<DocumentEditor />} />
             <Route path="records" element={<Records />} />
+            <Route path="quick-reports" element={<QuickReports />} />
             <Route path="change-request/:id" element={<ChangeRequest />} />
             <Route path="change-request-management" element={<ChangeRequestManagement />} />
-            <Route path="history" element={<DocumentHistory />} />
             <Route path="approvals" element={<ApprovalWorkflow />} />
           </Route>
 
@@ -522,6 +535,7 @@ const Layout: React.FC = () => {
             <Route path="settings" element={<SystemSettings />} />
           </Route>
         </Routes>
+        </Suspense>
       </Box>
       {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && <Footer />}
       <BackToHome />

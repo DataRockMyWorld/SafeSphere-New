@@ -1,17 +1,29 @@
 from rest_framework import serializers
 from .models import (
     ISOClause, Tag, Document, ApprovalWorkflow, 
-    ChangeRequest, DocumentTemplate, Record
+    ChangeRequest, DocumentTemplate, Record, DocumentFolder
 )
 from accounts.serializers import UserMeSerializer
 
 def validate_file_type(value):
+    """
+    Validate uploaded file type and size.
+    
+    Allowed formats:
+    - PDF (strongly recommended for all final/approved documents)
+    - Word (.doc, .docx) - for editable templates and draft documents
+    - Excel (.xls, .xlsx) - for data sheets, checklists, matrices
+    - Images (.jpg, .jpeg, .png) - for evidence, photos, diagrams
+    
+    Note: For ISO compliance and long-term archival, PDF is the gold standard.
+    Other formats are useful during the drafting/editing phase.
+    """
     if value:
         ext = value.name.split('.')[-1].lower()
         allowed_extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png']
         if ext not in allowed_extensions:
             raise serializers.ValidationError(
-                f"Unsupported file format. Allowed formats are: PDF, Word, Excel, and Images (JPG, PNG)."
+                f"Unsupported file format. Allowed formats are: PDF (recommended), Word, Excel, and Images (JPG, PNG)."
             )
         # Check file size (limit to 10MB)
         if value.size > 10 * 1024 * 1024:
@@ -166,20 +178,38 @@ class RecordSerializer(serializers.ModelSerializer):
     submitted_by = UserMeSerializer(read_only=True)
     reviewed_by = UserMeSerializer(read_only=True)
     form_document = DocumentSerializer(read_only=True)
-    form_document_id = serializers.UUIDField(write_only=True)
+    form_document_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     submitted_file = serializers.FileField(validators=[validate_file_type])
+    submitted_file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Record
         fields = [
-            'id', 'form_document', 'form_document_id', 'submitted_by', 
-            'submitted_file', 'status', 'created_at',
-            'reviewed_by', 'reviewed_at', 'rejection_reason'
+            'id', 'record_number', 'title', 'notes', 'form_document', 'form_document_id', 'submitted_by', 
+            'submitted_file', 'submitted_file_url', 'status', 'created_at', 'year',
+            'reviewed_by', 'reviewed_at', 'rejection_reason',
+            'notification_sent', 'email_sent'
         ]
         read_only_fields = [
-            'submitted_by', 'status', 'created_at', 
-            'reviewed_by', 'reviewed_at', 'rejection_reason'
+            'record_number', 'submitted_by', 'status', 'created_at', 'year',
+            'reviewed_by', 'reviewed_at', 'rejection_reason',
+            'notification_sent', 'email_sent'
         ]
+    
+    def validate_title(self, value):
+        """Ensure title is provided and not empty."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Record title is required.")
+        return value.strip()
+    
+    def get_submitted_file_url(self, obj):
+        """Get full URL for submitted file."""
+        if obj.submitted_file:
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(obj.submitted_file.url)
+            return obj.submitted_file.url
+        return None
 
     def create(self, validated_data):
         validated_data['submitted_by'] = self.context['request'].user
@@ -193,3 +223,61 @@ class RecordApprovalSerializer(serializers.Serializer):
         if self.context.get('action') == 'reject' and not value:
             raise serializers.ValidationError("A reason is required for rejection.")
         return value
+
+
+# =============================
+# Document Folder Serializers
+# =============================
+
+class DocumentFolderSerializer(serializers.ModelSerializer):
+    """Serializer for DocumentFolder model."""
+    created_by_name = serializers.SerializerMethodField()
+    document_count = serializers.SerializerMethodField()
+    is_empty = serializers.SerializerMethodField()
+    can_be_deleted = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DocumentFolder
+        fields = [
+            'id', 'name', 'value', 'description', 
+            'created_by', 'created_by_name', 'created_at', 'updated_at',
+            'is_active', 'document_count', 'is_empty', 'can_be_deleted'
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+    
+    def get_created_by_name(self, obj):
+        return obj.created_by.get_full_name if obj.created_by else None
+    
+    def get_document_count(self, obj):
+        return obj.get_document_count()
+    
+    def get_is_empty(self, obj):
+        return obj.is_empty()
+    
+    def get_can_be_deleted(self, obj):
+        return obj.can_be_deleted()
+    
+    def validate_value(self, value):
+        """Normalize and validate folder value."""
+        import re
+        if value:
+            # Normalize to uppercase and replace spaces with underscores
+            value = value.upper().replace(' ', '_')
+            # Validate format
+            if not re.match(r'^[A-Z0-9_]+$', value):
+                raise serializers.ValidationError(
+                    "Folder value must contain only uppercase letters, numbers, and underscores."
+                )
+            # Check uniqueness (if updating, exclude current instance)
+            if self.instance:
+                existing = DocumentFolder.objects.filter(value=value).exclude(pk=self.instance.pk)
+            else:
+                existing = DocumentFolder.objects.filter(value=value)
+            if existing.exists():
+                raise serializers.ValidationError("A folder with this value already exists.")
+        return value
+    
+    def create(self, validated_data):
+        """Set created_by to current user."""
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)

@@ -34,6 +34,7 @@ class LoginUserView(generics.CreateAPIView):
     """View for user login."""
     serializer_class = LoginSerializer
     permission_classes = [AllowAny]
+    authentication_classes = []  # Disable JWT auth on login to avoid invalid token errors
 
     def post(self, request, *args, **kwargs):
         try:

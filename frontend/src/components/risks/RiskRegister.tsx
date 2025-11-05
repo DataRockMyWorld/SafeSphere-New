@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import {
   Box,
   Paper,
@@ -34,34 +34,15 @@ import {
   Visibility as ViewIcon,
   FileDownload as ExcelIcon,
   CheckCircle as ApproveIcon,
+  UploadFile as UploadIcon,
+  ViewColumn as ColumnsIcon,
 } from '@mui/icons-material';
-import axiosInstance from '../../utils/axiosInstance';
+import { RisksApi } from './api';
+import type { RiskAssessment } from './types';
 import { useAuth } from '../../context/AuthContext';
 import RiskAssessmentForm from './RiskAssessmentForm';
 
-interface RiskAssessment {
-  id: string;
-  event_number: string;
-  status: string;
-  location: string;
-  process_area: string;
-  risk_category: string;
-  activity_type: string;
-  assessed_by_name: string;
-  risk_owner_name: string;
-  assessment_date: string;
-  next_review_date: string;
-  initial_risk_level: number;
-  residual_risk_level: number;
-  initial_risk_rating: string;
-  residual_risk_rating: string;
-  initial_risk_color: string;
-  residual_risk_color: string;
-  risk_acceptable: boolean;
-  is_overdue_for_review: boolean;
-  hazard_count: number;
-  barrier_count: number;
-}
+// moved to ./types
 
 const RiskRegister: React.FC = () => {
   const theme = useTheme();
@@ -77,45 +58,77 @@ const RiskRegister: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [filterRiskLevel, setFilterRiskLevel] = useState('ALL');
+  const [filterSite, setFilterSite] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sites, setSites] = useState<string[]>([]);
+  const [columnMenuOpen, setColumnMenuOpen] = useState<null | HTMLElement>(null);
+  const [visibleColumns, setVisibleColumns] = useState({
+    assessmentDate: true,
+    category: true,
+    activity: true,
+    initialRisk: true,
+    residualRisk: true,
+    assessedBy: true,
+    riskOwner: true,
+    status: true,
+    nextReview: true,
+    hazards: true,
+    barriers: true,
+    acceptable: true,
+  });
   
   // Dialogs
   const [formDialog, setFormDialog] = useState(false);
   const [editingAssessment, setEditingAssessment] = useState<any>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   
-  useEffect(() => {
-    fetchAssessments();
+  const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
+    setSnackbar({ open: true, message, severity });
   }, []);
-  
-  const fetchAssessments = async () => {
+
+  const fetchAssessments = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get('/risks/assessments/');
-      setAssessments(response.data);
+      const data = await RisksApi.fetchAssessments({
+        status: filterStatus !== 'ALL' ? filterStatus : undefined,
+        category: filterCategory !== 'ALL' ? filterCategory : undefined,
+        site: filterSite !== 'ALL' ? filterSite : undefined,
+      });
+      setAssessments(data);
+      const uniqueSites: string[] = Array.from(
+        new Set(
+          ((data || []) as RiskAssessment[])
+            .map((a) => a.location)
+            .filter((v): v is string => Boolean(v))
+        )
+      );
+      setSites(uniqueSites);
     } catch (error) {
       console.error('Error fetching assessments:', error);
       showSnackbar('Failed to load risk assessments', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showSnackbar, filterStatus, filterCategory, filterSite]);
   
-  const showSnackbar = (message: string, severity: 'success' | 'error') => {
-    setSnackbar({ open: true, message, severity });
-  };
-  
-  const handleExportExcel = async () => {
+  useEffect(() => {
+    fetchAssessments();
     try {
-      const response = await axiosInstance.get('/risks/export-excel/', {
-        responseType: 'blob',
-        params: {
-          status: filterStatus !== 'ALL' ? filterStatus : undefined,
-          category: filterCategory !== 'ALL' ? filterCategory : undefined,
-        },
+      const key = `risk_columns_${user?.role || 'default'}`;
+      const saved = localStorage.getItem(key);
+      if (saved) setVisibleColumns((prev) => ({ ...prev, ...JSON.parse(saved) }));
+    } catch {}
+  }, [fetchAssessments]);
+  
+  const handleExportExcel = useCallback(async () => {
+    try {
+      const response = await RisksApi.exportExcel({
+        status: filterStatus !== 'ALL' ? filterStatus : undefined,
+        category: filterCategory !== 'ALL' ? filterCategory : undefined,
+        site: filterSite !== 'ALL' ? filterSite : undefined,
       });
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([response]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `Risk_Register_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -128,45 +141,65 @@ const RiskRegister: React.FC = () => {
       console.error('Error exporting Excel:', error);
       showSnackbar('Failed to export Excel file', 'error');
     }
-  };
+  }, [filterStatus, filterCategory, showSnackbar]);
   
-  const handleSort = (property: keyof RiskAssessment) => {
+  const handleSort = useCallback((property: keyof RiskAssessment) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
-  };
+  }, [orderBy, order]);
   
-  const handleDelete = async (id: string, eventNumber: string) => {
+  const handleDelete = useCallback(async (id: string, eventNumber: string) => {
     if (!window.confirm(`Delete risk assessment ${eventNumber}?`)) return;
     
     try {
-      await axiosInstance.delete(`/risks/assessments/${id}/`);
+      await RisksApi.deleteAssessment(id);
       showSnackbar('Risk assessment deleted', 'success');
       fetchAssessments();
     } catch (error) {
       showSnackbar('Failed to delete', 'error');
     }
-  };
+  }, [fetchAssessments, showSnackbar]);
   
-  const handleApprove = async (id: string) => {
+  const handleApprove = useCallback(async (id: string) => {
     try {
-      await axiosInstance.post(`/risks/assessments/${id}/approve/`);
+      await RisksApi.approveAssessment(id);
       showSnackbar('Risk assessment approved', 'success');
       fetchAssessments();
     } catch (error: any) {
       showSnackbar(error.response?.data?.error || 'Failed to approve', 'error');
     }
-  };
+  }, [fetchAssessments, showSnackbar]);
   
-  const openCreateDialog = () => {
+  const openCreateDialog = useCallback(() => {
     setEditingAssessment(null);
     setFormDialog(true);
+  }, []);
+
+  // Import Excel
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const handleOpenImport = () => fileInputRef.current?.click();
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await RisksApi.importExcel(file);
+      showSnackbar('Import completed successfully', 'success');
+      fetchAssessments();
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || 'Import failed. Please verify the template.';
+      showSnackbar(msg, 'error');
+    } finally {
+      // reset input to allow re-selecting the same file
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
   
   // Filter and sort data
   const filteredAndSorted = React.useMemo(() => {
     let filtered = assessments.filter(assessment => {
       if (filterStatus !== 'ALL' && assessment.status !== filterStatus) return false;
+      if (filterSite !== 'ALL' && assessment.location !== filterSite) return false;
       if (filterCategory !== 'ALL' && assessment.risk_category !== filterCategory) return false;
       if (filterRiskLevel !== 'ALL') {
         if (filterRiskLevel === 'LOW' && assessment.residual_risk_level > 5) return false;
@@ -195,7 +228,7 @@ const RiskRegister: React.FC = () => {
     });
     
     return filtered;
-  }, [assessments, filterStatus, filterCategory, filterRiskLevel, searchTerm, orderBy, order]);
+  }, [assessments, filterStatus, filterCategory, filterRiskLevel, filterSite, searchTerm, orderBy, order]);
   
   return (
     <Box>
@@ -206,28 +239,92 @@ const RiskRegister: React.FC = () => {
             Risk Register
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Comprehensive risk assessment table with Excel export
+            {(user?.position === 'HSSE MANAGER' || user?.is_superuser) 
+              ? 'Comprehensive risk assessment table with Excel export'
+              : 'Read-only view - Contact HSSE Manager to create or modify assessments'
+            }
           </Typography>
         </Box>
         
         <Stack direction="row" spacing={1}>
           <Button
             variant="outlined"
-            startIcon={<ExcelIcon />}
-            onClick={handleExportExcel}
+            startIcon={<ColumnsIcon />}
+            onClick={(e) => setColumnMenuOpen(e.currentTarget)}
           >
-            Export Excel
+            Columns
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={openCreateDialog}
-            sx={{
-              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-            }}
-          >
-            New Assessment
-          </Button>
+          {columnMenuOpen && (
+            <Paper
+              elevation={4}
+              sx={{
+                position: 'absolute',
+                zIndex: 10,
+                mt: 5,
+                right: 16,
+                p: 1,
+                borderRadius: 1,
+              }}
+              onMouseLeave={() => setColumnMenuOpen(null)}
+            >
+              <Stack sx={{ p: 1 }} spacing={0.5}>
+                {Object.keys(visibleColumns).map((key) => (
+                  <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={(visibleColumns as any)[key]}
+                      onChange={(e) => {
+                        const next = { ...visibleColumns, [key]: e.target.checked } as typeof visibleColumns;
+                        setVisibleColumns(next);
+                        try {
+                          const storageKey = `risk_columns_${user?.role || 'default'}`;
+                          localStorage.setItem(storageKey, JSON.stringify(next));
+                        } catch {}
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ textTransform: 'capitalize' }}>{key.replace(/([A-Z])/g, ' $1').trim()}</Typography>
+                  </label>
+                ))}
+              </Stack>
+            </Paper>
+          )}
+          
+          {/* Action buttons - Only for HSSE Manager/Admin */}
+          {(user?.position === 'HSSE MANAGER' || user?.is_superuser) && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                style={{ display: 'none' }}
+                onChange={handleImportExcel}
+              />
+              <Button
+                variant="outlined"
+                startIcon={<UploadIcon />}
+                onClick={handleOpenImport}
+              >
+                Import Excel
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<ExcelIcon />}
+                onClick={handleExportExcel}
+              >
+                Export Excel
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={openCreateDialog}
+                sx={{
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                }}
+              >
+                New Assessment
+              </Button>
+            </>
+          )}
         </Stack>
       </Box>
       
@@ -251,6 +348,16 @@ const RiskRegister: React.FC = () => {
               <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
               <MenuItem value="APPROVED">Approved</MenuItem>
               <MenuItem value="ACTIVE">Active</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Site</InputLabel>
+            <Select value={filterSite} label="Site" onChange={(e) => setFilterSite(e.target.value)}>
+              <MenuItem value="ALL">All Sites</MenuItem>
+              {sites.map((s) => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
+              ))}
             </Select>
           </FormControl>
           
@@ -277,20 +384,17 @@ const RiskRegister: React.FC = () => {
           
           <Box sx={{ flex: 1 }} />
           
-          <Typography variant="body2" color="text.secondary">
-            Showing {filteredAndSorted.length} of {assessments.length} assessments
-          </Typography>
         </Stack>
       </Paper>
       
       {/* Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+      <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
         {loading && <LinearProgress />}
         
-        <Table>
+        <Table stickyHeader sx={{ minWidth: 1400 }}>
           <TableHead>
             <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-              <TableCell>
+              <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper' }}>
                 <TableSortLabel
                   active={orderBy === 'event_number'}
                   direction={orderBy === 'event_number' ? order : 'asc'}
@@ -299,13 +403,19 @@ const RiskRegister: React.FC = () => {
                   Event #
                 </TableSortLabel>
               </TableCell>
-              <TableCell>Location / Process</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell align="center">Initial Risk</TableCell>
-              <TableCell align="center">Residual Risk</TableCell>
-              <TableCell>Risk Owner</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Next Review</TableCell>
+              <TableCell>Site / Location</TableCell>
+              {visibleColumns.assessmentDate && <TableCell>Assessment Date</TableCell>}
+              {visibleColumns.category && <TableCell>Category</TableCell>}
+              {visibleColumns.activity && <TableCell>Activity</TableCell>}
+              {visibleColumns.initialRisk && <TableCell align="center">Initial Risk</TableCell>}
+              {visibleColumns.residualRisk && <TableCell align="center">Residual Risk</TableCell>}
+              {visibleColumns.assessedBy && <TableCell>Assessed By</TableCell>}
+              {visibleColumns.riskOwner && <TableCell>Risk Owner</TableCell>}
+              {visibleColumns.status && <TableCell>Status</TableCell>}
+              {visibleColumns.nextReview && <TableCell>Next Review</TableCell>}
+              {visibleColumns.hazards && <TableCell align="center">Hazards</TableCell>}
+              {visibleColumns.barriers && <TableCell align="center">Barriers</TableCell>}
+              {visibleColumns.acceptable && <TableCell align="center">Acceptable</TableCell>}
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -321,12 +431,9 @@ const RiskRegister: React.FC = () => {
                     bgcolor: index % 2 === 0 ? 'transparent' : alpha(theme.palette.grey[500], 0.02),
                   }}
                 >
-                  <TableCell>
+                  <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.primary.main }}>
                       {assessment.event_number}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {assessment.assessment_date}
                     </Typography>
                   </TableCell>
                   
@@ -339,6 +446,15 @@ const RiskRegister: React.FC = () => {
                     </Typography>
                   </TableCell>
                   
+                  {visibleColumns.assessmentDate && (
+                  <TableCell>
+                    <Typography variant="body2">
+                      {assessment.assessment_date}
+                    </Typography>
+                  </TableCell>
+                  )}
+
+                  {visibleColumns.category && (
                   <TableCell>
                     <Chip
                       label={assessment.risk_category.replace('_', ' ')}
@@ -346,7 +462,17 @@ const RiskRegister: React.FC = () => {
                       sx={{ fontSize: '0.75rem' }}
                     />
                   </TableCell>
+                  )}
                   
+                  {visibleColumns.activity && (
+                  <TableCell>
+                    <Typography variant="body2">
+                      {assessment.activity_type || '—'}
+                    </Typography>
+                  </TableCell>
+                  )}
+
+                  {visibleColumns.initialRisk && (
                   <TableCell align="center">
                     <Chip
                       label={`${assessment.initial_risk_level} - ${assessment.initial_risk_rating}`}
@@ -358,7 +484,9 @@ const RiskRegister: React.FC = () => {
                       }}
                     />
                   </TableCell>
+                  )}
                   
+                  {visibleColumns.residualRisk && (
                   <TableCell align="center">
                     <Chip
                       label={`${assessment.residual_risk_level} - ${assessment.residual_risk_rating}`}
@@ -370,13 +498,25 @@ const RiskRegister: React.FC = () => {
                       }}
                     />
                   </TableCell>
+                  )}
                   
+                  {visibleColumns.assessedBy && (
+                  <TableCell>
+                    <Typography variant="body2">
+                      {assessment.assessed_by_name || '—'}
+                    </Typography>
+                  </TableCell>
+                  )}
+
+                  {visibleColumns.riskOwner && (
                   <TableCell>
                     <Typography variant="body2">
                       {assessment.risk_owner_name || 'Unassigned'}
                     </Typography>
                   </TableCell>
+                  )}
                   
+                  {visibleColumns.status && (
                   <TableCell>
                     <Chip
                       label={assessment.status.replace('_', ' ')}
@@ -393,48 +533,83 @@ const RiskRegister: React.FC = () => {
                       />
                     )}
                   </TableCell>
+                  )}
                   
+                  {visibleColumns.nextReview && (
                   <TableCell>
                     <Typography variant="body2">
                       {assessment.next_review_date || 'Not set'}
                     </Typography>
                   </TableCell>
+                  )}
                   
+                  {visibleColumns.hazards && (
+                  <TableCell align="center">
+                    <Chip label={assessment.hazard_count} size="small" />
+                  </TableCell>
+                  )}
+                  {visibleColumns.barriers && (
+                  <TableCell align="center">
+                    <Chip label={assessment.barrier_count} size="small" />
+                  </TableCell>
+                  )}
+                  {visibleColumns.acceptable && (
+                  <TableCell align="center">
+                    <Chip
+                      label={assessment.risk_acceptable ? 'Yes' : 'No'}
+                      color={assessment.risk_acceptable ? 'success' : 'error'}
+                      size="small"
+                      sx={{ fontWeight: 700 }}
+                    />
+                  </TableCell>
+                  )}
+
                   <TableCell align="right">
                     <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                       <Tooltip title="View Details">
-                        <IconButton size="small">
+                        <IconButton 
+                          size="small"
+                          onClick={() => {
+                            setEditingAssessment(assessment);
+                            setFormDialog(true);
+                          }}
+                        >
                           <ViewIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       
-                      {user?.position === 'HSSE MANAGER' && assessment.status === 'UNDER_REVIEW' && (
-                        <Tooltip title="Approve">
-                          <IconButton
-                            size="small"
-                            color="success"
-                            onClick={() => handleApprove(assessment.id)}
-                          >
-                            <ApproveIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                      {/* Admin/HSSE Manager only actions */}
+                      {(user?.position === 'HSSE MANAGER' || user?.is_superuser) && (
+                        <>
+                          {assessment.status === 'UNDER_REVIEW' && (
+                            <Tooltip title="Approve">
+                              <IconButton
+                                size="small"
+                                color="success"
+                                onClick={() => handleApprove(assessment.id)}
+                              >
+                                <ApproveIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          
+                          <Tooltip title="Edit">
+                            <IconButton size="small" color="primary">
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDelete(assessment.id, assessment.event_number)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
                       )}
-                      
-                      <Tooltip title="Edit">
-                        <IconButton size="small" color="primary">
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(assessment.id, assessment.event_number)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -487,5 +662,6 @@ const RiskRegister: React.FC = () => {
   );
 };
 
-export default RiskRegister;
+// Memoize component to prevent unnecessary re-renders
+export default memo(RiskRegister);
 

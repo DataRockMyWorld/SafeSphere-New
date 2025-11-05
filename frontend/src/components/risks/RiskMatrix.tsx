@@ -22,18 +22,10 @@ import {
   Close as CloseIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import axiosInstance from '../../utils/axiosInstance';
+import { RisksApi } from './api';
+import type { MatrixConfig } from './types';
 
-interface MatrixConfig {
-  matrix_size: number;
-  probability_definitions: { [key: string]: any };
-  severity_definitions: { [key: string]: any };
-  low_threshold: number;
-  medium_threshold: number;
-  low_risk_color: string;
-  medium_risk_color: string;
-  high_risk_color: string;
-}
+// from ./types
 
 interface RiskAssessment {
   id: string;
@@ -61,12 +53,12 @@ const RiskMatrix: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [configRes, assessmentsRes] = await Promise.all([
-        axiosInstance.get('/risks/matrix-config/'),
-        axiosInstance.get('/risks/assessments/'),
+      const [cfg, list] = await Promise.all([
+        RisksApi.fetchMatrixConfig(),
+        RisksApi.fetchAssessments(),
       ]);
-      setConfig(configRes.data);
-      setAssessments(assessmentsRes.data);
+      setConfig(cfg);
+      setAssessments(list as any);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -124,18 +116,18 @@ const RiskMatrix: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-          5×5 Risk Matrix
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.25 }}>
+          {matrixSize}×{matrixSize} Risk Matrix
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Interactive risk visualization - Click any cell to view assessments
+          Compact view • Click a cell to see assessments
         </Typography>
       </Box>
       
       {/* Legend */}
-      <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2 }}>
-        <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
+      <Paper sx={{ p: 2, mb: 2.5, borderRadius: 2 }}>
+        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
             Risk Levels:
           </Typography>
@@ -164,16 +156,42 @@ const RiskMatrix: React.FC = () => {
             }}
           />
         </Stack>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 240 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
+              Probability (Likelihood)
+            </Typography>
+            <Stack spacing={0.5}>
+              {probabilities.map((p) => (
+                <Typography key={`p-def-${p}`} variant="caption" color="text.secondary">
+                  {p}. {config.probability_definitions[p]?.label}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 240 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
+              Severity (Consequence)
+            </Typography>
+            <Stack spacing={0.5}>
+              {severities.map((s) => (
+                <Typography key={`s-def-${s}`} variant="caption" color="text.secondary">
+                  {s}. {config.severity_definitions[s]?.label}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+        </Stack>
       </Paper>
       
       {/* Matrix */}
-      <Paper sx={{ p: 3, borderRadius: 2, overflowX: 'auto' }}>
-        <Grid container spacing={0} sx={{ minWidth: 600 }}>
+      <Paper sx={{ p: 2, borderRadius: 2, overflowX: 'auto' }}>
+        <Grid container spacing={0} sx={{ minWidth: 520 }}>
           {/* Top left corner - Labels */}
           <Grid item xs={2}>
             <Box
               sx={{
-                height: 60,
+                height: 44,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -193,7 +211,7 @@ const RiskMatrix: React.FC = () => {
               <Tooltip title={config.severity_definitions[sev]?.description || ''}>
                 <Box
                   sx={{
-                    height: 60,
+                    height: 44,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -203,10 +221,10 @@ const RiskMatrix: React.FC = () => {
                     cursor: 'help',
                   }}
                 >
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.9rem' }}>
                     {sev}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
                     {config.severity_definitions[sev]?.label}
                   </Typography>
                 </Box>
@@ -222,7 +240,7 @@ const RiskMatrix: React.FC = () => {
                 <Tooltip title={config.probability_definitions[prob]?.description || ''}>
                   <Box
                     sx={{
-                      height: 80,
+                      height: 56,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -232,7 +250,7 @@ const RiskMatrix: React.FC = () => {
                       cursor: 'help',
                     }}
                   >
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.9rem' }}>
                       {prob}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
@@ -255,7 +273,7 @@ const RiskMatrix: React.FC = () => {
                       <Box
                         onClick={() => cellRisks.length > 0 && handleCellClick(prob, sev)}
                         sx={{
-                          height: 80,
+                          height: 56,
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
@@ -266,13 +284,13 @@ const RiskMatrix: React.FC = () => {
                           transition: 'all 0.2s',
                           '&:hover': cellRisks.length > 0 ? {
                             bgcolor: alpha(riskColor, 0.3),
-                            transform: 'scale(1.05)',
+                            transform: 'scale(1.03)',
                             boxShadow: 2,
                           } : {},
                         }}
                       >
                         <Typography 
-                          variant="h5" 
+                          variant="h6" 
                           sx={{ 
                             fontWeight: 700, 
                             color: riskColor,
@@ -289,8 +307,8 @@ const RiskMatrix: React.FC = () => {
                             size="small"
                             sx={{
                               mt: 0.5,
-                              height: 20,
-                              fontSize: '0.7rem',
+                              height: 18,
+                              fontSize: '0.65rem',
                               bgcolor: riskColor,
                               color: 'white',
                               fontWeight: 700,

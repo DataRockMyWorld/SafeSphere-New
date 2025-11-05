@@ -21,6 +21,64 @@ class Tag(models.Model):
     
     def __str__(self):
         return self.name
+
+
+### Document Folder Model
+class DocumentFolder(models.Model):
+    """
+    Dynamic folder system for organizing documents.
+    Folders can be created by HSSE Managers/Superadmins.
+    Folders can only be deleted if they are empty.
+    
+    The folder's 'value' field maps to Document.document_type.
+    This allows dynamic folder creation while maintaining compatibility.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255, help_text="Display name for the folder")
+    value = models.CharField(
+        max_length=50, 
+        unique=True,
+        help_text="Technical identifier (maps to document_type). Must be uppercase and URL-safe."
+    )
+    description = models.TextField(blank=True, help_text="Optional folder description")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='folders_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Document Folder"
+        verbose_name_plural = "Document Folders"
+    
+    def __str__(self):
+        return f"{self.name} ({self.value})"
+    
+    def get_document_count(self):
+        """Get the number of documents in this folder."""
+        return Document.objects.filter(document_type=self.value, is_active=True).count()
+    
+    def is_empty(self):
+        """Check if folder has any documents."""
+        return self.get_document_count() == 0
+    
+    def can_be_deleted(self):
+        """Check if folder can be safely deleted."""
+        return self.is_empty()
+    
+    def clean(self):
+        """Validate folder value format."""
+        from django.core.exceptions import ValidationError
+        if self.value:
+            # Ensure uppercase and replace spaces with underscores for consistency
+            self.value = self.value.upper().replace(' ', '_')
+            # Validate: alphanumeric and underscores only
+            if not re.match(r'^[A-Z0-9_]+$', self.value):
+                raise ValidationError("Folder value must contain only uppercase letters, numbers, and underscores.")
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
     
     
     
@@ -441,7 +499,10 @@ class DocumentTemplate(models.Model):
 class Record(models.Model):
     """
     Stores submitted form data as an uploaded file.
-    Includes an approval workflow.
+    Includes an approval workflow with email notifications.
+    
+    Auto-approval: Records submitted by Admin/HSSE Managers are auto-approved.
+    Year categorization: Records organized by submission year.
     """
     STATUS_CHOICES = [
         ('PENDING_REVIEW', 'Pending Review'),
@@ -450,25 +511,70 @@ class Record(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    form_document = models.ForeignKey(Document, on_delete=models.PROTECT, related_name='records', limit_choices_to={'document_type': 'FORM'})
+    record_number = models.CharField(max_length=20, unique=True, editable=False, null=True, blank=True, help_text="Auto-generated: REC-YYYY-NNN")
+    title = models.CharField(max_length=255, help_text="Descriptive name for this record submission")
+    notes = models.TextField(blank=True, help_text="Optional: Additional notes or comments")
+    form_document = models.ForeignKey(Document, on_delete=models.PROTECT, related_name='records', limit_choices_to={'document_type': 'FORM'}, null=True, blank=True)
     submitted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='records_submitted')
     submitted_file = models.FileField(upload_to='records/%Y/%m/')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING_REVIEW')
     created_at = models.DateTimeField(auto_now_add=True)
+    year = models.IntegerField(null=True, blank=True, editable=False, help_text="Year of submission for categorization")
     
     # Approval fields
     reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='records_reviewed')
     reviewed_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(blank=True)
+    
+    # Notification tracking
+    notification_sent = models.BooleanField(default=False)
+    email_sent = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['year', 'status']),
+            models.Index(fields=['submitted_by', 'year']),
+        ]
 
     def __str__(self):
-        return f"Record for {self.form_document.title} submitted by {self.submitted_by.get_full_name if self.submitted_by else 'Unknown'}"
+        display_title = self.title if self.title else (self.form_document.title if self.form_document else "Record")
+        return f"{self.record_number} - {display_title} by {self.submitted_by.get_full_name if self.submitted_by else 'Unknown'}"
+    
+    def save(self, *args, **kwargs):
+        """Auto-generate record number and set year on creation."""
+        is_new = self.pk is None
+        
+        # Set year from created_at if not set (for existing records)
+        if not self.year:
+            self.year = self.created_at.year if self.created_at else timezone.now().year
+        
+        if is_new:
+            # Generate record number: REC-YYYY-NNN
+            if not self.record_number:
+                year = timezone.now().year
+                # Get count of records for this year
+                year_count = Record.objects.filter(year=year).count() + 1
+                self.record_number = f"REC-{year}-{year_count:03d}"
+            
+            # Auto-approve for Admin and HSSE Manager
+            if self.submitted_by and (self.submitted_by.is_superuser or self.submitted_by.position == 'HSSE MANAGER'):
+                self.status = 'APPROVED'
+                self.reviewed_by = self.submitted_by
+                self.reviewed_at = timezone.now()
+        
+        super().save(*args, **kwargs)
+        
+        # Create notification after save
+        if is_new and self.status == 'PENDING_REVIEW':
+            self._create_submission_notification()
 
     def can_be_reviewed_by(self, user):
-        """Only HSSE Manager can review records."""
-        return user.position == 'HSSE MANAGER'
+        """Only HSSE Manager and Superadmin can review records."""
+        return user.position == 'HSSE MANAGER' or user.is_superuser
 
     def approve(self, user):
+        """Approve the record and send notification."""
         if not self.can_be_reviewed_by(user):
             raise ValueError("You do not have permission to approve this record.")
         
@@ -477,13 +583,165 @@ class Record(models.Model):
         self.reviewed_at = timezone.now()
         self.rejection_reason = ''
         self.save()
+        
+        # Send approval notification
+        self._send_approval_notification()
 
     def reject(self, user, reason):
+        """Reject the record and send notification with reason."""
         if not self.can_be_reviewed_by(user):
             raise ValueError("You do not have permission to reject this record.")
+        
+        if not reason or not reason.strip():
+            raise ValueError("A rejection reason is required.")
         
         self.status = 'REJECTED'
         self.reviewed_by = user
         self.reviewed_at = timezone.now()
         self.rejection_reason = reason
         self.save()
+        
+        # Send rejection notification
+        self._send_rejection_notification()
+    
+    def _create_submission_notification(self):
+        """Create in-app notification for HSSE Managers when record is submitted."""
+        try:
+            from accounts.models import Notification
+            
+            # Notify all HSSE Managers
+            hsse_managers = User.objects.filter(position='HSSE MANAGER')
+            for manager in hsse_managers:
+                Notification.objects.create(
+                    user=manager,
+                    notification_type='RECORD_SUBMITTED',
+                    title=f'New Record Submitted: {self.record_number}',
+                    message=f'{self.submitted_by.get_full_name if self.submitted_by else "Unknown"} submitted a record for "{self.form_document.title}".',
+                    related_object_id=str(self.id),
+                    related_object_type='record',
+                )
+            self.notification_sent = True
+            Record.objects.filter(pk=self.pk).update(notification_sent=True)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create submission notification for {self.record_number}: {e}")
+    
+    def _send_approval_notification(self):
+        """Send email and in-app notification when record is approved."""
+        if not self.submitted_by:
+            return
+        
+        try:
+            from accounts.models import Notification
+            from django.core.mail import send_mail
+            from django.conf import settings
+            
+            # Create in-app notification
+            Notification.objects.create(
+                user=self.submitted_by,
+                notification_type='RECORD_APPROVED',
+                title=f'Record Approved: {self.record_number}',
+                message=f'Your record submission for "{self.form_document.title}" has been approved by {self.reviewed_by.get_full_name if self.reviewed_by else "HSSE Manager"}.',
+                related_object_id=str(self.id),
+                related_object_type='record',
+            )
+            
+            # Send email
+            subject = f'✅ Record Approved: {self.record_number}'
+            message = f"""
+Hello {self.submitted_by.get_full_name},
+
+Your record submission has been approved!
+
+Record Number: {self.record_number}
+Form: {self.form_document.title}
+Submitted: {self.created_at.strftime('%B %d, %Y at %I:%M %p')}
+Approved by: {self.reviewed_by.get_full_name if self.reviewed_by else 'HSSE Manager'}
+Approved on: {self.reviewed_at.strftime('%B %d, %Y at %I:%M %p') if self.reviewed_at else 'N/A'}
+
+Your submission is now part of the official record.
+
+Access your records: {settings.FRONTEND_URL}/document-management/records
+
+---
+This is an automated notification from SafeSphere Document Management System.
+"""
+            
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[self.submitted_by.email],
+                fail_silently=False,
+            )
+            
+            self.email_sent = True
+            Record.objects.filter(pk=self.pk).update(email_sent=True)
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send approval notification for {self.record_number}: {e}")
+    
+    def _send_rejection_notification(self):
+        """Send email and in-app notification when record is rejected."""
+        if not self.submitted_by:
+            return
+        
+        try:
+            from accounts.models import Notification
+            from django.core.mail import send_mail
+            from django.conf import settings
+            
+            # Create in-app notification
+            Notification.objects.create(
+                user=self.submitted_by,
+                notification_type='RECORD_REJECTED',
+                title=f'Record Rejected: {self.record_number}',
+                message=f'Your record submission for "{self.form_document.title}" was rejected. Reason: {self.rejection_reason}',
+                related_object_id=str(self.id),
+                related_object_type='record',
+            )
+            
+            # Send email
+            subject = f'❌ Record Rejected: {self.record_number}'
+            message = f"""
+Hello {self.submitted_by.get_full_name},
+
+Your record submission has been rejected and requires correction.
+
+Record Number: {self.record_number}
+Form: {self.form_document.title}
+Submitted: {self.created_at.strftime('%B %d, %Y at %I:%M %p')}
+Reviewed by: {self.reviewed_by.get_full_name if self.reviewed_by else 'HSSE Manager'}
+Reviewed on: {self.reviewed_at.strftime('%B %d, %Y at %I:%M %p') if self.reviewed_at else 'N/A'}
+
+REJECTION REASON:
+{self.rejection_reason}
+
+Please review the feedback, make necessary corrections, and resubmit the form.
+
+Access your records: {settings.FRONTEND_URL}/document-management/records
+
+If you have questions, please contact the HSSE Manager.
+
+---
+This is an automated notification from SafeSphere Document Management System.
+"""
+            
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[self.submitted_by.email],
+                fail_silently=False,
+            )
+            
+            self.email_sent = True
+            Record.objects.filter(pk=self.pk).update(email_sent=True)
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send rejection notification for {self.record_number}: {e}")

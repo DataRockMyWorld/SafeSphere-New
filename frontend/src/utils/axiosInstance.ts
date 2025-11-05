@@ -59,8 +59,14 @@ axiosInstance.interceptors.request.use(
     const token = localStorage.getItem('token');
     const csrfToken = getCSRFToken();
 
-    if (token) {
+    const url = (config.url || '').toString();
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/token') || url.includes('/auth/refresh');
+
+    // Do NOT send Authorization header to login/refresh endpoints
+    if (token && !isAuthEndpoint) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (isAuthEndpoint && config.headers && 'Authorization' in config.headers) {
+      delete (config.headers as any).Authorization;
     }
     
     // Add CSRF token to headers

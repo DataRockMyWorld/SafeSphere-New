@@ -59,6 +59,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5176",
 ]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False  # Keep this False for security
+# Ensure CORS is applied to all API routes
+CORS_URLS_REGEX = r'^/api/.*$'
+CORS_EXPOSE_HEADERS = [
+    'Content-Type',
+    'X-CSRFToken',
+]
 CSRF_TRUSTED_ORIGINS = [
     "https://safe-sphere-zeta.vercel.app",
     "https://safespheres.info",
@@ -91,6 +98,8 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+# Preflight request settings
+CORS_PREFLIGHT_MAX_AGE = 86400
 
 
 # Application definition
@@ -109,6 +118,7 @@ INSTALLED_APPS = [
     "ppes",
     "audits",
     "risks",
+    "quickreports",
     "trainings",
     "performance",
     "corsheaders",
@@ -252,6 +262,42 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@example.com')
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173')
 
 AUTH_USER_MODEL = 'accounts.User'
+
+# Custom authentication backends
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.EmailBackend',  # Custom email-based authentication
+    'django.contrib.auth.backends.ModelBackend',  # Fallback to default backend
+]
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'accounts': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'accounts.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # Security Settings
 if DEBUG:
