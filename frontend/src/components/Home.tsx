@@ -134,10 +134,10 @@ const Home: React.FC = () => {
       gradient: theme.palette.primary.main,
     },
     {
-      title: 'Legal Compliance & Law Library',
-      description: 'Track legal compliance requirements and access comprehensive legal documents, regulations, and compliance resources',
+      title: 'Compliance',
+      description: 'Track regulatory obligations, reviews, and law library content in one place',
       icon: <LegalIcon />,
-      path: '/legal',
+      path: '/compliance',
       color: theme.palette.text.primary,
       gradient: theme.palette.text.primary,
     },

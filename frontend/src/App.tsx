@@ -47,8 +47,8 @@ const ApprovalWorkflow = lazy(() => import('./components/document/ApprovalWorkfl
 const SearchDocuments = lazy(() => import('./components/document/SearchDocuments'));
 const Records = lazy(() => import('./components/document/Records'));
 
-// Legal Components - lazy loaded
-const LegalLayout = lazy(() => import('./components/legal/LegalLayout'));
+// Compliance Components - lazy loaded
+const ComplianceLayout = lazy(() => import('./components/legal/ComplianceLayout'));
 const ComplianceDashboard = lazy(() => import('./components/legal/ComplianceDashboard'));
 const ComplianceObligations = lazy(() => import('./components/legal/ComplianceObligations'));
 const ComplianceReview = lazy(() => import('./components/legal/ComplianceReview'));
@@ -413,7 +413,7 @@ const HomeRedirect: React.FC = () => {
 const Layout: React.FC = () => {
   const location = useLocation();
   const isDocumentManagement = location.pathname.startsWith('/document-management');
-  const isLegalPage = location.pathname.startsWith('/legal');
+  const isCompliancePage = location.pathname.startsWith('/compliance');
   const isPPEPage = location.pathname.startsWith('/ppe');
   const isAuditPage = location.pathname.startsWith('/audit');
   const isRiskPage = location.pathname.startsWith('/risks');
@@ -425,7 +425,7 @@ const Layout: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && !isRegisterPage && !isPasswordResetPage && <Navbar />}
+      {!isDocumentManagement && !isCompliancePage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && !isRegisterPage && !isPasswordResetPage && <Navbar />}
       <Box component="main" sx={{ flexGrow: 1 }}>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
@@ -456,8 +456,8 @@ const Layout: React.FC = () => {
             <Route path="approvals" element={<ApprovalWorkflow />} />
           </Route>
 
-          {/* Legal Routes */}
-          <Route path="/legal" element={<PrivateRoute><LegalLayout /></PrivateRoute>}>
+          {/* Compliance Routes */}
+          <Route path="/compliance" element={<PrivateRoute><ComplianceLayout /></PrivateRoute>}>
             <Route index element={<ComplianceDashboard />} />
             <Route path="register" element={<ComplianceObligations />} />
             <Route path="review" element={<ComplianceReview />} />
@@ -466,6 +466,7 @@ const Layout: React.FC = () => {
             <Route path="library" element={<ImprovedLawLibrary />} />
             <Route path="tracker" element={<RegulatoryChangeTracker />} />
           </Route>
+          <Route path="/legal/*" element={<Navigate to="/compliance" replace />} />
 
           {/* Audit Routes */}
           <Route path="/audit" element={<PrivateRoute><AuditLayout /></PrivateRoute>}>
@@ -537,7 +538,7 @@ const Layout: React.FC = () => {
         </Routes>
         </Suspense>
       </Box>
-      {!isDocumentManagement && !isLegalPage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && <Footer />}
+      {!isDocumentManagement && !isCompliancePage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && <Footer />}
       <BackToHome />
     </Box>
   );

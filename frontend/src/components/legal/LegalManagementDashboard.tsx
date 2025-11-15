@@ -651,7 +651,7 @@ const LegalManagementDashboard: React.FC = () => {
                     variant="outlined"
                     size="medium"
                     endIcon={<HistoryIcon />}
-                    onClick={() => navigate('/legal/history')}
+                    onClick={() => navigate('/compliance/history')}
                     sx={{
                       borderColor: theme.palette.primary.main,
                       color: theme.palette.primary.main,

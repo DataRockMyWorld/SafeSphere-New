@@ -5,6 +5,19 @@ import os
 from .settings import *
 from datetime import timedelta
 
+
+def _get_env_list(var_name: str, fallback: list[str]) -> list[str]:
+    """
+    Parse a comma-separated environment variable into a clean list.
+    Returns the provided fallback if the variable is missing or empty.
+    """
+    raw_value = os.environ.get(var_name, '')
+    if not raw_value:
+        return fallback
+
+    cleaned = [item.strip() for item in raw_value.split(',') if item.strip()]
+    return cleaned or fallback
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
@@ -12,7 +25,7 @@ DEBUG = False
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # Allowed hosts
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = _get_env_list('ALLOWED_HOSTS', ALLOWED_HOSTS)
 
 # Security settings
 SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
@@ -25,8 +38,8 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # CORS settings for production
-CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')
-CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+CORS_ALLOWED_ORIGINS = _get_env_list('CORS_ALLOWED_ORIGINS', CORS_ALLOWED_ORIGINS)
+CSRF_TRUSTED_ORIGINS = _get_env_list('CSRF_TRUSTED_ORIGINS', CSRF_TRUSTED_ORIGINS)
 
 # Database configuration
 DATABASES = {

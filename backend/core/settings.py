@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+from importlib import import_module
 from pathlib import Path
 import environ
 from datetime import timedelta
@@ -51,6 +52,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.safespheres.info",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://192.168.100.89:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
     "http://localhost:3000",
@@ -72,6 +74,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.safespheres.info",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://192.168.100.89:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
     "http://localhost:3000",
@@ -133,16 +136,36 @@ REST_FRAMEWORK = {
     ],
 }
 
+def _cors_post_csrf_available() -> bool:
+    """
+    Detect whether the installed version of django-cors-headers exposes
+    CorsPostCsrfMiddleware (added in v4.4). Older releases do not ship it,
+    so we only reference it when it's actually available to avoid ImportError.
+    """
+    try:
+        middleware_module = import_module("corsheaders.middleware")
+        getattr(middleware_module, "CorsPostCsrfMiddleware")
+    except (ImportError, AttributeError):
+        return False
+    return True
+
+
+_HAS_CORS_POST_CSRF = _cors_post_csrf_available()
+
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+if _HAS_CORS_POST_CSRF:
+    insert_at = MIDDLEWARE.index("django.middleware.csrf.CsrfViewMiddleware") + 1
+    MIDDLEWARE.insert(insert_at, "corsheaders.middleware.CorsPostCsrfMiddleware")
 
 ROOT_URLCONF = "core.urls"
 

@@ -82,18 +82,18 @@ const ALL_MODULES = [
     ],
   },
   {
-    id: 'legal',
-    title: 'Legal Compliance',
+    id: 'compliance',
+    title: 'Compliance',
     icon: <LegalIcon />,
-    path: '/legal',
+    path: '/compliance',
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/legal', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Compliance Obligations', icon: <LegalScaleIcon />, path: '/legal/register', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Annual Review', icon: <HistoryIcon />, path: '/legal/review', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Compliance Calendar', icon: <ScheduleIcon />, path: '/legal/calendar', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Evidence Management', icon: <DocumentIcon />, path: '/legal/evidence', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Law Library', icon: <LibraryIcon />, path: '/legal/library' }, // Available to all users (read-only)
-      { title: 'Change Tracker', icon: <PolicyIcon />, path: '/legal/tracker', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Dashboard', icon: <DashboardIcon />, path: '/compliance', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Obligations', icon: <LegalScaleIcon />, path: '/compliance/register', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Annual Review', icon: <HistoryIcon />, path: '/compliance/review', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Calendar', icon: <ScheduleIcon />, path: '/compliance/calendar', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Evidence', icon: <DocumentIcon />, path: '/compliance/evidence', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
+      { title: 'Law Library', icon: <LibraryIcon />, path: '/compliance/library' }, // Available to all users (read-only)
+      { title: 'Change Tracker', icon: <PolicyIcon />, path: '/compliance/tracker', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
     ],
   },
   {
