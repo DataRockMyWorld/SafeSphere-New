@@ -162,32 +162,29 @@ const DocumentMatrix: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ p: 1.5 }}>
       {/* Header */}
       <Box sx={{ mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
+        <Typography variant="h5" sx={{ fontWeight: 600 }}>
           Document Matrix
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          ISO 45001 Compliant Document Register - Complete overview of all documents with location and status
         </Typography>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
 
       {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2, borderRadius: 1 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Paper sx={{ p: 1.5, mb: 1.5, borderRadius: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
-            placeholder="Search documents..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             size="small"
-            sx={{ flex: 1, minWidth: 250 }}
+            sx={{ flex: 1, minWidth: 200 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: theme.palette.text.secondary, fontSize: 20 }} />
+                  <SearchIcon sx={{ color: theme.palette.text.secondary, fontSize: 18 }} />
                 </InputAdornment>
               ),
               endAdornment: searchQuery && (
@@ -203,7 +200,7 @@ const DocumentMatrix: React.FC = () => {
               ),
             }}
           />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
             <InputLabel>Type</InputLabel>
             <Select value={filterType} label="Type" onChange={(e) => setFilterType(e.target.value)}>
               <MenuItem value="ALL">All Types</MenuItem>
@@ -215,7 +212,7 @@ const DocumentMatrix: React.FC = () => {
               <MenuItem value="OTHER">Other</MenuItem>
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
             <InputLabel>Status</InputLabel>
             <Select value={filterStatus} label="Status" onChange={(e) => setFilterStatus(e.target.value)}>
               <MenuItem value="ALL">All Statuses</MenuItem>
@@ -227,18 +224,18 @@ const DocumentMatrix: React.FC = () => {
               <MenuItem value="REJECTED">Rejected</MenuItem>
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Classification</InputLabel>
             <Select value={filterClassification} label="Classification" onChange={(e) => setFilterClassification(e.target.value)}>
-              <MenuItem value="ALL">All Classifications</MenuItem>
+              <MenuItem value="ALL">All</MenuItem>
               <MenuItem value="CONTROLLED">Controlled</MenuItem>
               <MenuItem value="UNCONTROLLED">Uncontrolled</MenuItem>
               <MenuItem value="REFERENCE">Reference</MenuItem>
               <MenuItem value="EXTERNAL">External</MenuItem>
             </Select>
           </FormControl>
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
-            {filteredDocuments.length} document{filteredDocuments.length !== 1 ? 's' : ''}
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', fontSize: '0.75rem' }}>
+            {filteredDocuments.length} doc{filteredDocuments.length !== 1 ? 's' : ''}
           </Typography>
         </Box>
       </Paper>
@@ -249,59 +246,59 @@ const DocumentMatrix: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: theme.palette.grey[50] }}>
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Document</Typography>
+                <TableCell sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Document</Typography>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Type</Typography>
+                <TableCell sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Type</Typography>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Version</Typography>
+                <TableCell sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Version</Typography>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Status</Typography>
+                <TableCell sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Status</Typography>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Classification</Typography>
+                <TableCell sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Classification</Typography>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Storage Location</Typography>
+                <TableCell sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Location</Typography>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Access Level</Typography>
+                <TableCell sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Access</Typography>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Next Review</Typography>
+                <TableCell sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Review</Typography>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Approved</Typography>
+                <TableCell sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Approved</Typography>
                 </TableCell>
-                <TableCell align="right">
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Actions</Typography>
+                <TableCell align="right" sx={{ py: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Actions</Typography>
                 </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 8 }}>
-                    <CircularProgress />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                      Loading document matrix...
+                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                    <CircularProgress size={24} />
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                      Loading...
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : paginatedDocuments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 8 }}>
-                    <DescriptionIcon sx={{ fontSize: 48, color: theme.palette.text.disabled, mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                    <DescriptionIcon sx={{ fontSize: 36, color: theme.palette.text.disabled, mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 500 }}>
                       No Documents Found
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                       {searchQuery || filterType !== 'ALL' || filterStatus !== 'ALL' || filterClassification !== 'ALL'
-                        ? 'No documents match your filters. Try adjusting your search criteria.'
-                        : 'No documents available. Upload your first document to get started.'}
+                        ? 'No documents match your filters.'
+                        : 'No documents available.'}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -317,11 +314,11 @@ const DocumentMatrix: React.FC = () => {
                     }}
                     onClick={() => navigate(`/document-management/library/${doc.id}`)}
                   >
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <DescriptionIcon sx={{ fontSize: 20, color: theme.palette.text.secondary }} />
+                    <TableCell sx={{ py: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <DescriptionIcon sx={{ fontSize: 16, color: theme.palette.text.secondary }} />
                         <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.75rem', lineHeight: 1.3 }}>
                             {doc.title}
                           </Typography>
                           {doc.is_obsolete && (
@@ -329,36 +326,36 @@ const DocumentMatrix: React.FC = () => {
                               label="Obsolete"
                               size="small"
                               sx={{ 
-                                height: 18, 
-                                fontSize: '0.65rem',
-                                mt: 0.5,
+                                height: 16, 
+                                fontSize: '0.6rem',
+                                mt: 0.25,
                                 bgcolor: theme.palette.warning.light,
                                 color: theme.palette.warning.dark,
                               }}
                             />
                           )}
                           {doc.replaced_by && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                              Replaced by: {doc.replaced_by.title}
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, fontSize: '0.65rem' }}>
+                              → {doc.replaced_by.title}
                             </Typography>
                           )}
                         </Box>
                       </Box>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ py: 1 }}>
                       <Chip 
                         label={doc.document_type} 
                         size="small" 
                         variant="outlined"
-                        sx={{ fontSize: '0.75rem' }}
+                        sx={{ fontSize: '0.7rem', height: 22 }}
                       />
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        v{doc.version} (Rev {doc.revision_number})
+                    <TableCell sx={{ py: 1 }}>
+                      <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                        v{doc.version} (R{doc.revision_number})
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ py: 1 }}>
                       <Chip
                         label={getStatusLabel(doc.status)}
                         size="small"
@@ -366,81 +363,83 @@ const DocumentMatrix: React.FC = () => {
                           bgcolor: `${getStatusColor(doc.status)}20`,
                           color: getStatusColor(doc.status),
                           fontWeight: 500,
-                          fontSize: '0.75rem',
+                          fontSize: '0.7rem',
+                          height: 22,
                         }}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ py: 1 }}>
                       <Chip
                         label={doc.document_classification || 'Controlled'}
                         size="small"
                         color="primary"
                         variant="outlined"
-                        sx={{ fontSize: '0.75rem' }}
+                        sx={{ fontSize: '0.7rem', height: 22 }}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ py: 1 }}>
                       {doc.storage_location ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <LocationIcon sx={{ fontSize: 16, color: theme.palette.text.secondary }} />
-                          <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                          <LocationIcon sx={{ fontSize: 14, color: theme.palette.text.secondary }} />
+                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
                             {doc.storage_location}
                           </Typography>
                         </Box>
                       ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                          Not specified
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          —
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ py: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        {doc.access_level === 'PUBLIC' && <PublicIcon sx={{ fontSize: 16, color: theme.palette.success.main }} />}
-                        {doc.access_level === 'RESTRICTED' && <LockIcon sx={{ fontSize: 16, color: theme.palette.warning.main }} />}
-                        {doc.access_level === 'CONFIDENTIAL' && <LockIcon sx={{ fontSize: 16, color: theme.palette.error.main }} />}
-                        <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                        {doc.access_level === 'PUBLIC' && <PublicIcon sx={{ fontSize: 14, color: theme.palette.success.main }} />}
+                        {doc.access_level === 'RESTRICTED' && <LockIcon sx={{ fontSize: 14, color: theme.palette.warning.main }} />}
+                        {doc.access_level === 'CONFIDENTIAL' && <LockIcon sx={{ fontSize: 14, color: theme.palette.error.main }} />}
+                        <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
                           {doc.access_level || 'Internal'}
                         </Typography>
                       </Box>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ py: 1 }}>
                       {doc.next_review_date ? (
-                        <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                        <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
                           {formatDate(doc.next_review_date)}
                         </Typography>
                       ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                          Not set
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          —
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ py: 1 }}>
                       {doc.approved_at ? (
                         <Box>
-                          <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
                             {formatDate(doc.approved_at)}
                           </Typography>
                           {doc.approved_by && (
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                              by {doc.approved_by.full_name}
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block' }}>
+                              {doc.approved_by.full_name}
                             </Typography>
                           )}
                         </Box>
                       ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                          Not approved
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          —
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                        <Tooltip title="View Details">
+                    <TableCell align="right" sx={{ py: 1 }} onClick={(e) => e.stopPropagation()}>
+                      <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'flex-end' }}>
+                        <Tooltip title="View">
                           <IconButton 
                             size="small" 
                             color="primary"
+                            sx={{ p: 0.5 }}
                             onClick={() => navigate(`/document-management/library/${doc.id}`)}
                           >
-                            <ViewIcon fontSize="small" />
+                            <ViewIcon sx={{ fontSize: 16 }} />
                           </IconButton>
                         </Tooltip>
                         {doc.file_url && (
@@ -450,9 +449,10 @@ const DocumentMatrix: React.FC = () => {
                               component="a"
                               href={doc.file_url}
                               download
+                              sx={{ p: 0.5 }}
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <DownloadIcon fontSize="small" />
+                              <DownloadIcon sx={{ fontSize: 16 }} />
                             </IconButton>
                           </Tooltip>
                         )}

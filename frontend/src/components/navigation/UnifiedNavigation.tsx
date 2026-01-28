@@ -69,13 +69,14 @@ const COLLAPSED_DRAWER_WIDTH = 80;
 const ALL_MODULES = [
   {
     id: 'document-management',
-    title: 'Document Management',
+    title: 'Document Hub',
     icon: <DocumentIcon />,
     path: '/document-management',
     items: [
       { title: 'Library', icon: <LibraryIcon />, path: '/document-management/library' },
       { title: 'Records', icon: <RecordsIcon />, path: '/document-management/records' },
       { title: 'Document Matrix', icon: <ReportIcon />, path: '/document-management/matrix' },
+      { title: 'Review Schedule', icon: <ScheduleIcon />, path: '/document-management/review-schedule' },
       { title: 'Change Requests', icon: <ChangeRequestIcon />, path: '/document-management/change-request-management' },
       { title: 'Approvals', icon: <ApprovalIcon />, path: '/document-management/approvals' },
     ],
@@ -505,7 +506,7 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
             boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.04)}`,
           }}
         >
-          <Toolbar sx={{ minHeight: '64px !important', px: { xs: 2, sm: 3 } }}>
+          <Toolbar sx={{ minHeight: '52px !important', px: { xs: 1.5, sm: 2.5 } }}>
             {isMobile && (
               <IconButton
                 onClick={handleDrawerToggle}

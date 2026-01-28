@@ -219,7 +219,7 @@ const DocumentList: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h4">Document Management</Typography>
+        <Typography variant="h4">Document Hub</Typography>
         {activeTab === 0 ? (
           <Button
             variant="contained"

@@ -29,6 +29,14 @@ import {
   Grid,
   Link,
   Divider,
+  InputAdornment,
+  Card,
+  CardContent,
+  CardActionArea,
+  Stack,
+  Breadcrumbs,
+  alpha,
+  TablePagination,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,6 +46,15 @@ import {
   UploadFile as UploadFileIcon,
   Folder as FolderIcon,
   ArrowBack as ArrowBackIcon,
+  Search as SearchIcon,
+  Delete as DeleteIcon,
+  Home as HomeIcon,
+  NavigateNext as NavigateNextIcon,
+  FilterList as FilterIcon,
+  CalendarToday as CalendarIcon,
+  Person as PersonIcon,
+  Description as DescriptionIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../utils/axiosInstance';
@@ -60,7 +77,10 @@ interface Record {
   record_number: string;
   title: string;
   notes: string;
-  form_document: Document;
+  form_document?: Document;
+  source_document?: Document;
+  form_document_id?: string;
+  source_document_id?: string;
   submitted_by: User;
   submitted_file: string;
   submitted_file_url: string;
@@ -72,6 +92,31 @@ interface Record {
   rejection_reason?: string;
   notification_sent: boolean;
   email_sent: boolean;
+  // ISO 45001: Classification
+  record_classification?: 'LEGAL' | 'OPERATIONAL' | 'AUDIT' | 'INCIDENT' | 'TRAINING' | 'INSPECTION' | 'MAINTENANCE' | 'HEALTH';
+  // ISO 45001: Retention
+  retention_period_years?: number;
+  disposal_date?: string;
+  days_until_disposal?: number;
+  // ISO 45001: Location
+  storage_location?: string;
+  storage_type?: 'ELECTRONIC' | 'PHYSICAL' | 'HYBRID';
+  // Context
+  department?: string;
+  facility_location?: string;
+  // ISO 45001: Immutability
+  is_locked?: boolean;
+  locked_at?: string;
+  locked_by?: User;
+  // Correction tracking
+  correction_version?: number;
+  parent_record?: {
+    id: string;
+    record_number: string;
+    title: string;
+  };
+  // Access restrictions
+  access_restrictions?: Record<string, any>;
 }
 
 interface YearData {
@@ -96,20 +141,62 @@ const SubmitRecordDialog: React.FC<{
   onClose: () => void;
   onSuccess: () => void;
 }> = ({ open, onClose, onSuccess }) => {
+  const theme = useTheme();
+  const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [sourceDocumentId, setSourceDocumentId] = useState<string>('');
+  const [recordClassification, setRecordClassification] = useState<string>('OPERATIONAL');
+  const [department, setDepartment] = useState<string>(user?.department || '');
+  const [facilityLocation, setFacilityLocation] = useState<string>('');
+  const [storageLocation, setStorageLocation] = useState<string>('');
+  const [storageType, setStorageType] = useState<string>('ELECTRONIC');
+  const [retentionPeriodYears, setRetentionPeriodYears] = useState<number>(7);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [availableForms, setAvailableForms] = useState<Document[]>([]);
+  const [loadingForms, setLoadingForms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch approved forms when dialog opens
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      fetchApprovedForms();
+    } else {
+      // Reset form when closed
       setSelectedFile(null);
       setTitle('');
       setNotes('');
+      setSourceDocumentId('');
+      setRecordClassification('OPERATIONAL');
+      setDepartment(user?.department || '');
+      setFacilityLocation('');
+      setStorageLocation('');
+      setStorageType('ELECTRONIC');
+      setRetentionPeriodYears(7);
+      setSelectedYear(new Date().getFullYear());
       setError(null);
     }
-  }, [open]);
+  }, [open, user]);
+
+  const fetchApprovedForms = async () => {
+    try {
+      setLoadingForms(true);
+      const response = await axiosInstance.get('/documents/', {
+        params: {
+          document_type: 'FORM',
+          status: 'APPROVED',
+        }
+      });
+      setAvailableForms(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error('Error fetching approved forms:', err);
+      setAvailableForms([]);
+    } finally {
+      setLoadingForms(false);
+    }
+  };
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -136,6 +223,19 @@ const SubmitRecordDialog: React.FC<{
     formData.append('submitted_file', selectedFile);
     if (notes.trim()) formData.append('notes', notes.trim());
     
+    // ISO 45001 fields
+    if (sourceDocumentId) {
+      formData.append('source_document_id', sourceDocumentId);
+    }
+    formData.append('record_classification', recordClassification);
+    if (department) formData.append('department', department);
+    if (facilityLocation.trim()) formData.append('facility_location', facilityLocation.trim());
+    if (storageLocation.trim()) formData.append('storage_location', storageLocation.trim());
+    formData.append('storage_type', storageType);
+    formData.append('retention_period_years', retentionPeriodYears.toString());
+    // Allow user to specify year (will be validated/overridden by backend if needed)
+    formData.append('year', selectedYear.toString());
+    
     try {
       await axiosInstance.post('/records/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -156,29 +256,161 @@ const SubmitRecordDialog: React.FC<{
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         
         <Box sx={{ mt: 2 }}>
-          {/* Record Title */}
-          <TextField
-            fullWidth
-            label="Record Title"
-            placeholder="e.g., Monthly Safety Inspection - November 2025"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            sx={{ mb: 2 }}
-            helperText="Give this record a descriptive name"
-          />
+          <Stack spacing={2}>
+            {/* Form Selection */}
+            <FormControl fullWidth>
+              <InputLabel>Form Template (Optional)</InputLabel>
+              <Select
+                value={sourceDocumentId}
+                label="Form Template (Optional)"
+                onChange={(e) => setSourceDocumentId(e.target.value)}
+                disabled={loadingForms}
+              >
+                <MenuItem value="">
+                  <em>None - General Record</em>
+                </MenuItem>
+                {availableForms.map((form) => (
+                  <MenuItem key={form.id} value={form.id}>
+                    {form.title} (v{form.version})
+                  </MenuItem>
+                ))}
+              </Select>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                Select the approved form this record is based on (if applicable)
+              </Typography>
+            </FormControl>
 
-          {/* Notes */}
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label="Notes (Optional)"
-            placeholder="Add any additional notes or comments..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            sx={{ mb: 3 }}
-          />
+            {/* Record Title */}
+            <TextField
+              fullWidth
+              label="Record Title"
+              placeholder="e.g., Monthly Safety Inspection - November 2025"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              helperText="Give this record a descriptive name"
+            />
+
+            {/* Record Classification */}
+            <FormControl fullWidth>
+              <InputLabel>Record Classification *</InputLabel>
+              <Select
+                value={recordClassification}
+                label="Record Classification *"
+                onChange={(e) => setRecordClassification(e.target.value)}
+              >
+                <MenuItem value="LEGAL">Legal Requirement</MenuItem>
+                <MenuItem value="OPERATIONAL">Operational Record</MenuItem>
+                <MenuItem value="AUDIT">Audit Evidence</MenuItem>
+                <MenuItem value="INCIDENT">Incident Record</MenuItem>
+                <MenuItem value="TRAINING">Training Record</MenuItem>
+                <MenuItem value="INSPECTION">Inspection Record</MenuItem>
+                <MenuItem value="MAINTENANCE">Maintenance Record</MenuItem>
+                <MenuItem value="HEALTH">Health Surveillance Record</MenuItem>
+              </Select>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                ISO 45001: Classification determines retention requirements
+              </Typography>
+            </FormControl>
+
+            {/* Department and Facility */}
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Department</InputLabel>
+                  <Select
+                    value={department}
+                    label="Department"
+                    onChange={(e) => setDepartment(e.target.value)}
+                  >
+                    <MenuItem value="HSSE">HSSE</MenuItem>
+                    <MenuItem value="OPERATIONS">Operations</MenuItem>
+                    <MenuItem value="FINANCE">Finance</MenuItem>
+                    <MenuItem value="MARKETING">Marketing</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Facility Location"
+                  placeholder="e.g., Main Office, Warehouse A"
+                  value={facilityLocation}
+                  onChange={(e) => setFacilityLocation(e.target.value)}
+                />
+              </Grid>
+            </Grid>
+
+            {/* Storage Information */}
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Storage Type</InputLabel>
+                  <Select
+                    value={storageType}
+                    label="Storage Type"
+                    onChange={(e) => setStorageType(e.target.value)}
+                  >
+                    <MenuItem value="ELECTRONIC">Electronic</MenuItem>
+                    <MenuItem value="PHYSICAL">Physical</MenuItem>
+                    <MenuItem value="HYBRID">Hybrid</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Storage Location"
+                  placeholder="e.g., Server: /records/2025/, Cabinet: A-12"
+                  value={storageLocation}
+                  onChange={(e) => setStorageLocation(e.target.value)}
+                />
+              </Grid>
+            </Grid>
+
+            {/* Year Selection */}
+            <FormControl fullWidth>
+              <InputLabel>Record Year *</InputLabel>
+              <Select
+                value={selectedYear}
+                label="Record Year *"
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              >
+                {Array.from({ length: 10 }, (_, i) => {
+                  const year = new Date().getFullYear() - i;
+                  return (
+                    <MenuItem key={year} value={year}>
+                      {year}
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                Select the year this record belongs to (defaults to current year)
+              </Typography>
+            </FormControl>
+
+            {/* Retention Period */}
+            <TextField
+              fullWidth
+              type="number"
+              label="Retention Period (Years)"
+              value={retentionPeriodYears}
+              onChange={(e) => setRetentionPeriodYears(parseInt(e.target.value) || 7)}
+              inputProps={{ min: 1, max: 100 }}
+              helperText={`Record will be retained for ${retentionPeriodYears} year(s). Disposal date will be calculated automatically.`}
+            />
+
+            {/* Notes */}
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Notes (Optional)"
+              placeholder="Add any additional notes or comments..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
 
           {/* File Upload */}
           <Box sx={{ 
@@ -218,14 +450,24 @@ const SubmitRecordDialog: React.FC<{
               </Typography>
             )}
           </Box>
+          </Stack>
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>Cancel</Button>
+        <Button 
+          onClick={onClose} 
+          disabled={submitting}
+          size="small"
+          sx={{ fontSize: '0.8rem', py: 0.5 }}
+        >
+          Cancel
+        </Button>
         <Button 
           onClick={handleSubmit} 
           variant="contained" 
           disabled={!title.trim() || !selectedFile || submitting}
+          size="small"
+          sx={{ fontSize: '0.8rem', py: 0.5 }}
         >
           {submitting ? 'Submitting...' : 'Submit'}
         </Button>
@@ -286,14 +528,24 @@ const RecordDetailsDialog: React.FC<{
                 {record.title || 'Untitled Record'}
               </Typography>
             </Grid>
-            {record.form_document && (
+            {(record.source_document || record.form_document) && (
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" color="text.secondary">Form Template</Typography>
+                <Typography variant="caption" color="text.secondary">Source Form</Typography>
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {record.form_document.title}
+                  {(record.source_document || record.form_document)?.title || 'N/A'}
                 </Typography>
               </Grid>
             )}
+            <Grid item xs={12} md={6}>
+              <Typography variant="caption" color="text.secondary">Record Classification</Typography>
+              <Chip 
+                label={record.record_classification?.replace('_', ' ') || 'Operational'} 
+                size="small" 
+                color="primary"
+                variant="outlined"
+                sx={{ mt: 0.5 }}
+              />
+            </Grid>
             <Grid item xs={12} md={6}>
               <Typography variant="caption" color="text.secondary">Submitted By</Typography>
               <Typography variant="body1" sx={{ fontWeight: 600 }}>
@@ -310,6 +562,102 @@ const RecordDetailsDialog: React.FC<{
               <Typography variant="caption" color="text.secondary">Year</Typography>
               <Typography variant="body1">{record.year}</Typography>
             </Grid>
+            {record.department && (
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" color="text.secondary">Department</Typography>
+                <Typography variant="body1">{record.department}</Typography>
+              </Grid>
+            )}
+            {record.facility_location && (
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" color="text.secondary">Facility Location</Typography>
+                <Typography variant="body1">{record.facility_location}</Typography>
+              </Grid>
+            )}
+            {/* ISO 45001: Retention Information */}
+            {(record.retention_period_years || record.disposal_date) && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" color="text.secondary">Retention Period</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    {record.retention_period_years || 7} year(s)
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" color="text.secondary">Disposal Date</Typography>
+                  <Typography 
+                    variant="body1" 
+                    sx={{ 
+                      fontWeight: 600,
+                      color: record.days_until_disposal !== undefined && record.days_until_disposal < 90 
+                        ? theme.palette.warning.main 
+                        : 'inherit'
+                    }}
+                  >
+                    {record.disposal_date 
+                      ? new Date(record.disposal_date).toLocaleDateString()
+                      : 'Not calculated'}
+                    {record.days_until_disposal !== undefined && record.days_until_disposal < 90 && (
+                      <Chip 
+                        label={`${record.days_until_disposal} days remaining`} 
+                        size="small" 
+                        color="warning"
+                        sx={{ ml: 1 }}
+                      />
+                    )}
+                  </Typography>
+                </Grid>
+              </>
+            )}
+            {/* ISO 45001: Storage Information */}
+            {(record.storage_location || record.storage_type) && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" color="text.secondary">Storage Type</Typography>
+                  <Chip 
+                    label={record.storage_type || 'Electronic'} 
+                    size="small" 
+                    variant="outlined"
+                    sx={{ mt: 0.5 }}
+                  />
+                </Grid>
+                {record.storage_location && (
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="caption" color="text.secondary">Storage Location</Typography>
+                    <Typography variant="body1">{record.storage_location}</Typography>
+                  </Grid>
+                )}
+              </>
+            )}
+            {/* ISO 45001: Immutability */}
+            {record.is_locked && (
+              <Grid item xs={12}>
+                <Alert severity="info" icon={<InfoIcon />}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    🔒 Record Locked (Immutable)
+                  </Typography>
+                  <Typography variant="caption">
+                    This record has been locked and cannot be modified. 
+                    {record.locked_at && ` Locked on ${new Date(record.locked_at).toLocaleString()}`}
+                    {record.locked_by && ` by ${record.locked_by.full_name}`}
+                  </Typography>
+                </Alert>
+              </Grid>
+            )}
+            {/* Correction Tracking */}
+            {record.parent_record && (
+              <Grid item xs={12}>
+                <Alert severity="warning" icon={<InfoIcon />}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Correction Record
+                  </Typography>
+                  <Typography variant="caption">
+                    This is a correction of record {record.parent_record.record_number}. 
+                    Version: {record.correction_version || 1}
+                  </Typography>
+                </Alert>
+              </Grid>
+            )}
             {record.notes && (
               <Grid item xs={12}>
                 <Typography variant="caption" color="text.secondary">Submitter Notes</Typography>
@@ -400,7 +748,13 @@ const RecordDetailsDialog: React.FC<{
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button 
+          onClick={onClose}
+          size="small"
+          sx={{ fontSize: '0.8rem', py: 0.5 }}
+        >
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   );
@@ -453,13 +807,22 @@ const RejectRecordDialog: React.FC<{
         />
       </DialogContent>
       <DialogActions sx={{ p: 3 }}>
-        <Button onClick={handleClose} disabled={submitting}>Cancel</Button>
+        <Button 
+          onClick={handleClose} 
+          disabled={submitting}
+          size="small"
+          sx={{ fontSize: '0.8rem', py: 0.5 }}
+        >
+          Cancel
+        </Button>
         <Button 
           onClick={handleConfirm} 
           variant="contained" 
           color="error" 
           disabled={!reason.trim() || submitting}
           startIcon={submitting ? <CircularProgress size={16} /> : <RejectIcon />}
+          size="small"
+          sx={{ fontSize: '0.8rem', py: 0.5 }}
         >
           {submitting ? 'Sending...' : 'Confirm Rejection'}
         </Button>
@@ -476,6 +839,7 @@ const Records: React.FC = () => {
   const [stats, setStats] = useState<RecordStats | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null); // null = viewing year folders
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openSubmitDialog, setOpenSubmitDialog] = useState(false);
@@ -491,6 +855,10 @@ const Records: React.FC = () => {
   
   const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Pagination
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   
   // Breadcrumb for navigation
   const [folderPath, setFolderPath] = useState<Array<{ label: string; year: number | null }>>([
@@ -546,10 +914,12 @@ const Records: React.FC = () => {
       setLoading(true);
       const params: any = { year };
       if (selectedStatus !== 'ALL') params.status = selectedStatus;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
       
       const response = await axiosInstance.get('/records/', { params });
       setRecords(response.data);
       setError(null);
+      setPage(0); // Reset to first page when filters change
     } catch (err: any) {
       setError('Failed to fetch records.');
       console.error(err);
@@ -558,15 +928,26 @@ const Records: React.FC = () => {
     }
   };
 
-  // Initial fetch of years
+  // Initial fetch of years and overall statistics
   useEffect(() => {
     const loadInitialData = async () => {
       setLoading(true);
       await fetchYears();
+      await fetchStatistics(); // Fetch overall statistics (no year parameter)
       setLoading(false);
     };
     loadInitialData();
   }, []);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (selectedYear !== null) {
+        fetchRecords(selectedYear);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Fetch records when year or status changes
   useEffect(() => {
@@ -589,7 +970,8 @@ const Records: React.FC = () => {
     setSelectedYear(null);
     setFolderPath([{ label: 'Form Records', year: null }]);
     setRecords([]);
-    setStats(null);
+    // Fetch overall statistics when going back to year folders view
+    fetchStatistics();
   };
   
   const handleSubmitSuccess = () => {
@@ -699,226 +1081,408 @@ const Records: React.FC = () => {
     return new Date(dateString).toLocaleString();
   };
   
-  return (
-    <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-              Form Records
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {selectedYear === null 
-                ? 'Browse records by year' 
-                : `Viewing ${selectedYear} records`}
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setOpenSubmitDialog(true)}
-            size="large"
-          >
-            Submit New Record
-          </Button>
-        </Box>
+  // Filter records based on search
+  const filteredRecords = React.useMemo(() => {
+    if (!searchQuery.trim()) return records;
+    const query = searchQuery.toLowerCase();
+    return records.filter(record =>
+      record.title?.toLowerCase().includes(query) ||
+      record.record_number?.toLowerCase().includes(query) ||
+      record.submitted_by?.full_name?.toLowerCase().includes(query) ||
+      record.notes?.toLowerCase().includes(query)
+    );
+  }, [records, searchQuery]);
 
-        {/* Breadcrumb Navigation */}
-        {selectedYear !== null && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <Link
-              component="button"
-              variant="body2"
+  // Paginated records
+  const paginatedRecords = React.useMemo(() => {
+    const start = page * rowsPerPage;
+    return filteredRecords.slice(start, start + rowsPerPage);
+  }, [filteredRecords, page, rowsPerPage]);
+
+  return (
+    <Box sx={{ p: 2 }}>
+      {/* Compact Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: selectedYear !== null ? 1.5 : 2,
+        flexWrap: 'wrap', 
+        gap: 1.5 
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {selectedYear !== null && (
+            <IconButton
               onClick={handleBackToYears}
-              sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 0.5,
-                textDecoration: 'none',
-                '&:hover': { textDecoration: 'underline' }
-              }}
+              size="small"
+              sx={{ color: theme.palette.text.secondary }}
             >
-              <Typography variant="body2" color="text.secondary">All Years</Typography>
-            </Link>
-            <Typography color="text.secondary">/</Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {selectedYear}
+              <ArrowBackIcon />
+            </IconButton>
+          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              {selectedYear === null ? 'Form Records' : `${selectedYear} Records`}
             </Typography>
+            {selectedYear !== null && (
+              <Chip
+                label={selectedYear === new Date().getFullYear() ? 'Current Year' : 'Past Year'}
+                size="small"
+                color={selectedYear === new Date().getFullYear() ? 'primary' : 'default'}
+                sx={{ height: 24, fontSize: '0.7rem' }}
+              />
+            )}
           </Box>
-        )}
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setOpenSubmitDialog(true)}
+          size="small"
+          sx={{ fontSize: '0.8rem', py: 0.5 }}
+        >
+          Submit New Record
+        </Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {/* Search Bar and Status Filter - Side by Side */}
+      {selectedYear !== null && (
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 1.5, 
+          mb: 1,
+          flexWrap: 'wrap'
+        }}>
+          <TextField
+            placeholder="Search records..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            size="small"
+            sx={{ 
+              flex: 1,
+              minWidth: 250,
+              maxWidth: 400,
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: theme.palette.background.default,
+              },
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: theme.palette.text.secondary, fontSize: 20 }} />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchQuery('')}
+                    sx={{ color: theme.palette.text.secondary }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={selectedStatus}
+              label="Status"
+              onChange={(e) => setSelectedStatus(e.target.value)}
+            >
+              <MenuItem value="ALL">All</MenuItem>
+              <MenuItem value="PENDING_REVIEW">Pending</MenuItem>
+              <MenuItem value="APPROVED">Approved</MenuItem>
+              <MenuItem value="REJECTED">Rejected</MenuItem>
+            </Select>
+          </FormControl>
+          {searchQuery && (
+            <Chip 
+              label={`${filteredRecords.length} result${filteredRecords.length !== 1 ? 's' : ''}`}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          )}
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+            {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''}
+          </Typography>
+        </Box>
+      )}
+
+      {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
 
       {/* Content: Year Folders or Records Table */}
       {selectedYear === null ? (
-        // Year Folders View
-        <Paper sx={{ borderRadius: 2 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: theme.palette.grey[50] }}>
-                  <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Year</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Total Records</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Pending</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Approved</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Rejected</Typography>
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center" sx={{ py: 8 }}>
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  years.map((yearData) => (
-                    <TableRow 
-                      key={yearData.year}
-                      hover
-                      onClick={() => handleYearClick(yearData.year)}
-                      sx={{ 
-                        cursor: 'pointer',
-                        '&:hover': { bgcolor: theme.palette.action.hover }
-                      }}
-                    >
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <FolderIcon sx={{ fontSize: 40, color: 'text.secondary' }} />
-                          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                            {yearData.year}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {yearData.total}
+        // Year Folders View - Simplified
+        loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress size={40} />
+          </Box>
+        ) : years.length === 0 ? (
+          <Paper sx={{ p: 4, textAlign: 'center', mt: 2 }}>
+            <FolderIcon sx={{ fontSize: 48, color: theme.palette.text.disabled, mb: 1.5 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              No Records Yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Submit your first completed form to get started
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setOpenSubmitDialog(true)}
+              size="small"
+            >
+              Submit New Record
+            </Button>
+          </Paper>
+        ) : (
+          <>
+            {/* Year Dropdown - Simple Selection */}
+            <Box sx={{ mb: 2 }}>
+              <FormControl fullWidth size="medium">
+                <InputLabel>Select Year</InputLabel>
+                <Select
+                  value=""
+                  label="Select Year"
+                  onChange={(e) => {
+                    const year = parseInt(e.target.value);
+                    if (year) {
+                      handleYearClick(year);
+                    }
+                  }}
+                  sx={{
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  {years
+                    .sort((a, b) => b.year - a.year) // Sort newest first
+                    .map((yearData) => {
+                      const currentYear = new Date().getFullYear();
+                      const isCurrentYear = yearData.year === currentYear;
+                      
+                      return (
+                        <MenuItem key={yearData.year} value={yearData.year}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="body1" sx={{ fontWeight: isCurrentYear ? 600 : 400 }}>
+                                {yearData.year}
+                              </Typography>
+                              {isCurrentYear && (
+                                <Chip
+                                  label="Current"
+                                  size="small"
+                                  color="primary"
+                                  sx={{ height: 20, fontSize: '0.65rem' }}
+                                />
+                              )}
+                            </Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {yearData.total} record{yearData.total !== 1 ? 's' : ''}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      );
+                    })}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Dashboard Statistics Cards - Uniform Design */}
+            {stats && (
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card 
+                    sx={{ 
+                      bgcolor: theme.palette.grey[100],
+                      border: `1px solid ${theme.palette.divider}`,
+                      borderRadius: 2,
+                      p: 2.5,
+                      height: '100%',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        boxShadow: theme.shadows[3],
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 1.5,
+                          bgcolor: theme.palette.primary.main,
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: 48,
+                          height: 48,
+                        }}
+                      >
+                        <DescriptionIcon sx={{ fontSize: 24 }} />
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600, fontSize: '0.7rem', display: 'block', mb: 0.5 }}>
+                          Total Records
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: yearData.pending > 0 ? '#F57C00' : 'text.secondary' }}>
-                          {yearData.pending}
+                        <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.primary.main, lineHeight: 1.2 }}>
+                          {stats.total}
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: yearData.approved > 0 ? '#2E7D32' : 'text.secondary' }}>
-                          {yearData.approved}
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
+                          Across all years
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: yearData.rejected > 0 ? '#C62828' : 'text.secondary' }}>
-                          {yearData.rejected}
+                      </Box>
+                    </Box>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card 
+                    sx={{ 
+                      bgcolor: theme.palette.grey[100],
+                      border: `1px solid ${theme.palette.divider}`,
+                      borderRadius: 2,
+                      p: 2.5,
+                      height: '100%',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        boxShadow: theme.shadows[3],
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 1.5,
+                          bgcolor: theme.palette.warning.main,
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: 48,
+                          height: 48,
+                        }}
+                      >
+                        <FilterIcon sx={{ fontSize: 24 }} />
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600, fontSize: '0.7rem', display: 'block', mb: 0.5 }}>
+                          Pending Review
                         </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+                        <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.warning.main, lineHeight: 1.2 }}>
+                          {stats.pending}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
+                          {stats.total > 0 ? `${Math.round((stats.pending / stats.total) * 100)}% of total` : '0%'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card 
+                    sx={{ 
+                      bgcolor: theme.palette.grey[100],
+                      border: `1px solid ${theme.palette.divider}`,
+                      borderRadius: 2,
+                      p: 2.5,
+                      height: '100%',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        boxShadow: theme.shadows[3],
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 1.5,
+                          bgcolor: theme.palette.success.main,
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: 48,
+                          height: 48,
+                        }}
+                      >
+                        <ApproveIcon sx={{ fontSize: 24 }} />
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600, fontSize: '0.7rem', display: 'block', mb: 0.5 }}>
+                          Approved
+                        </Typography>
+                        <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.success.main, lineHeight: 1.2 }}>
+                          {stats.approved}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
+                          {stats.total > 0 ? `${Math.round((stats.approved / stats.total) * 100)}% of total` : '0%'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={12} sm={6} md={3}>
+                  <Card 
+                    sx={{ 
+                      bgcolor: theme.palette.grey[100],
+                      border: `1px solid ${theme.palette.divider}`,
+                      borderRadius: 2,
+                      p: 2.5,
+                      height: '100%',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        boxShadow: theme.shadows[3],
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 1.5,
+                          bgcolor: theme.palette.error.main,
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: 48,
+                          height: 48,
+                        }}
+                      >
+                        <RejectIcon sx={{ fontSize: 24 }} />
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600, fontSize: '0.7rem', display: 'block', mb: 0.5 }}>
+                          Rejected
+                        </Typography>
+                        <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.error.main, lineHeight: 1.2 }}>
+                          {stats.rejected}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
+                          {stats.total > 0 ? `${Math.round((stats.rejected / stats.total) * 100)}% of total` : '0%'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Card>
+                </Grid>
+              </Grid>
+            )}
+          </>
+        )
       ) : (
         // Records List View (inside a year folder)
         <>
-          {/* Statistics for selected year */}
-          {stats && (
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Paper sx={{ p: 2, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
-                    Total Records
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {stats.total}
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Paper sx={{ p: 2, borderRadius: 1, border: '1px solid', borderColor: 'warning.light' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
-                    Pending Review
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {stats.pending}
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Paper sx={{ p: 2, borderRadius: 1, border: '1px solid', borderColor: 'success.light' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
-                    Approved
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {stats.approved}
-                  </Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Paper sx={{ p: 2, borderRadius: 1, border: '1px solid', borderColor: 'error.light' }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
-                    Rejected
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {stats.rejected}
-                  </Typography>
-                </Paper>
-              </Grid>
-            </Grid>
-          )}
-
-          {/* Status Filter (only when inside year folder) */}
-          <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6} md={4}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Filter by Status</InputLabel>
-                  <Select
-                    value={selectedStatus}
-                    label="Filter by Status"
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                  >
-                    <MenuItem value="ALL">All Statuses</MenuItem>
-                    <MenuItem value="PENDING_REVIEW">Pending Review</MenuItem>
-                    <MenuItem value="APPROVED">Approved</MenuItem>
-                    <MenuItem value="REJECTED">Rejected</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Button
-                  variant="outlined"
-                  onClick={handleBackToYears}
-                  startIcon={<ArrowBackIcon />}
-                >
-                  Back to All Years
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={12} md={4}>
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-                  <Chip 
-                    label={`Showing ${records.length} record${records.length !== 1 ? 's' : ''}`}
-                    color="primary"
-                    variant="outlined"
-                  />
-                </Box>
-              </Grid>
-            </Grid>
-          </Paper>
-
           {/* Records Table */}
-      <Paper sx={{ borderRadius: 2 }}>
+      <Paper sx={{ borderRadius: 1, border: `1px solid ${theme.palette.divider}`, mt: 0.5 }}>
         <TableContainer>
           <Table>
             <TableHead>
@@ -928,6 +1492,9 @@ const Records: React.FC = () => {
                 </TableCell>
                 <TableCell>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Form Name</Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Classification</Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Submitted By</Typography>
@@ -951,20 +1518,49 @@ const Records: React.FC = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={user?.position === 'HSSE MANAGER' ? 7 : 6} align="center" sx={{ py: 8 }}>
+                  <TableCell colSpan={user?.position === 'HSSE MANAGER' ? 8 : 7} align="center" sx={{ py: 8 }}>
                     <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : records.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={user?.position === 'HSSE MANAGER' ? 7 : 6} align="center" sx={{ py: 8 }}>
-                    <Typography color="text.secondary">
-                      No records found. Submit your first record to get started!
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                      Loading records...
                     </Typography>
                   </TableCell>
                 </TableRow>
+              ) : filteredRecords.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={user?.position === 'HSSE MANAGER' ? 8 : 7} align="center" sx={{ py: 8 }}>
+                    {searchQuery ? (
+                      <>
+                        <SearchIcon sx={{ fontSize: 48, color: theme.palette.text.disabled, mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No Records Found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          No records match "{searchQuery}". Try a different search term.
+                        </Typography>
+                        <Button 
+                          variant="outlined" 
+                          onClick={() => setSearchQuery('')}
+                          size="small"
+                          sx={{ fontSize: '0.8rem', py: 0.5 }}
+                        >
+                          Clear Search
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <DescriptionIcon sx={{ fontSize: 48, color: theme.palette.text.disabled, mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No Records Found
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          No records found for {selectedYear}. Submit your first record to get started!
+                        </Typography>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
               ) : (
-                records.map((record) => (
+                paginatedRecords.map((record) => (
                   <TableRow 
                     key={record.id} 
                     hover
@@ -975,20 +1571,46 @@ const Records: React.FC = () => {
                     onClick={() => handleViewRecord(record)}
                   >
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Chip 
-                        label={record.record_number} 
-                        size="small" 
-                        variant="outlined"
-                        sx={{ fontFamily: 'monospace', fontWeight: 600 }}
-                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {record.record_number ? (
+                          <Chip 
+                            label={record.record_number} 
+                            size="small" 
+                            variant="outlined"
+                            sx={{ fontFamily: 'monospace', fontWeight: 600 }}
+                          />
+                        ) : (
+                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            Generating...
+                          </Typography>
+                        )}
+                        {record.is_locked && (
+                          <Tooltip title="Record is locked and immutable">
+                            <LockIcon sx={{ fontSize: 16, color: theme.palette.text.secondary }} />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {record.title || (record.form_document?.title || 'Untitled Record')}
+                        {record.title || (record.source_document?.title || record.form_document?.title || 'Untitled Record')}
                       </Typography>
                       {record.notes && (
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                           {record.notes.substring(0, 60)}{record.notes.length > 60 ? '...' : ''}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={record.record_classification?.replace('_', ' ') || 'Operational'} 
+                        size="small" 
+                        color="primary"
+                        variant="outlined"
+                      />
+                      {record.disposal_date && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                          Dispose: {new Date(record.disposal_date).toLocaleDateString()}
                         </Typography>
                       )}
                     </TableCell>
@@ -1041,6 +1663,21 @@ const Records: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        {filteredRecords.length > 0 && (
+          <TablePagination
+            component="div"
+            count={filteredRecords.length}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            labelRowsPerPage="Records per page:"
+          />
+        )}
       </Paper>
         </>
       )}

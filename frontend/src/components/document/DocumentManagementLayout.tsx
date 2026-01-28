@@ -4,7 +4,7 @@ import UnifiedNavigation from '../navigation/UnifiedNavigation';
 
 const DocumentManagementLayout: React.FC = () => {
   return (
-    <UnifiedNavigation currentModule="Document Management">
+    <UnifiedNavigation currentModule="Document Hub">
       <Outlet />
     </UnifiedNavigation>
   );

@@ -126,7 +126,7 @@ const Home: React.FC = () => {
 
   const features = [
     {
-      title: 'Document Management',
+      title: 'Document Hub',
       description: 'Create, manage, and track all your HSSE documents with advanced workflow and approval systems',
       icon: <DocumentIcon />,
       path: '/document-management',

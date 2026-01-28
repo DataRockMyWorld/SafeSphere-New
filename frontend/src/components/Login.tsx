@@ -39,11 +39,21 @@ interface LoginFormData {
   password: string;
 }
 
+interface FormErrors {
+  email?: string;
+  password?: string;
+}
+
 const Login: React.FC = () => {
   const theme = useTheme();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
+  });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<{ email: boolean; password: boolean }>({
+    email: false,
+    password: false,
   });
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -52,9 +62,80 @@ const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // Email validation
+  const validateEmail = (email: string): string | undefined => {
+    if (!email) {
+      return 'Email is required';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    return undefined;
+  };
+
+  // Password validation
+  const validatePassword = (password: string): string | undefined => {
+    if (!password) {
+      return 'Password is required';
+    }
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return undefined;
+  };
+
+  const handleBlur = (field: 'email' | 'password') => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    if (field === 'email') {
+      const emailError = validateEmail(formData.email);
+      setErrors(prev => ({ ...prev, email: emailError }));
+    } else if (field === 'password') {
+      const passwordError = validatePassword(formData.password);
+      setErrors(prev => ({ ...prev, password: passwordError }));
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    
+    // Clear error when user starts typing
+    if (error) {
+      setError(null);
+    }
+    
+    // Real-time validation for touched fields
+    if (touched[name as keyof typeof touched]) {
+      if (name === 'email') {
+        const emailError = validateEmail(value);
+        setErrors(prev => ({ ...prev, email: emailError }));
+      } else if (name === 'password') {
+        const passwordError = validatePassword(value);
+        setErrors(prev => ({ ...prev, password: passwordError }));
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError(null);
+    
+    // Mark all fields as touched
+    setTouched({ email: true, password: true });
+    
+    // Validate all fields
+    const emailError = validateEmail(formData.email);
+    const passwordError = validatePassword(formData.password);
+    
+    if (emailError || passwordError) {
+      setErrors({ email: emailError, password: passwordError });
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -65,14 +146,6 @@ const Login: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
   };
 
   const handleClickShowPassword = () => {
@@ -441,31 +514,72 @@ const Login: React.FC = () => {
                     autoFocus
                     value={formData.email}
                     onChange={handleChange}
+                    onBlur={() => handleBlur('email')}
                     placeholder="your.email@company.com"
+                    error={touched.email && !!errors.email}
+                    helperText={touched.email && errors.email}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Email sx={{ color: theme.palette.text.secondary, fontSize: 18 }} />
+                          <Email 
+                            sx={{ 
+                              color: touched.email && errors.email 
+                                ? theme.palette.error.main 
+                                : touched.email && !errors.email && formData.email
+                                ? theme.palette.success.main
+                                : theme.palette.text.secondary, 
+                              fontSize: 18,
+                              transition: 'color 0.2s ease',
+                            }} 
+                          />
                         </InputAdornment>
                       ),
                     }}
                     sx={{
-                      mb: 1.5,
+                      mb: touched.email && errors.email ? 0.5 : 1.5,
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 2,
                         backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                        transition: 'all 0.2s ease',
                         '&:hover': {
                           backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: touched.email && errors.email 
+                              ? theme.palette.error.main 
+                              : theme.palette.primary.main,
+                          },
                         },
                         '&.Mui-focused': {
                           backgroundColor: 'white',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderWidth: 2,
+                            borderColor: touched.email && errors.email 
+                              ? theme.palette.error.main 
+                              : theme.palette.primary.main,
+                          },
+                        },
+                        '&.Mui-error': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: theme.palette.error.main,
+                          },
                         },
                       },
                       '& .MuiInputBase-input': {
                         fontSize: '0.9rem',
+                        padding: '14px 14px 14px 0',
                       },
                       '& .MuiInputLabel-root': {
                         fontSize: '0.9rem',
+                        '&.Mui-focused': {
+                          color: touched.email && errors.email 
+                            ? theme.palette.error.main 
+                            : theme.palette.primary.main,
+                        },
+                      },
+                      '& .MuiFormHelperText-root': {
+                        fontSize: '0.75rem',
+                        marginTop: '4px',
+                        marginLeft: 0,
                       },
                     }}
                   />
@@ -480,11 +594,24 @@ const Login: React.FC = () => {
                     autoComplete="current-password"
                     value={formData.password}
                     onChange={handleChange}
+                    onBlur={() => handleBlur('password')}
                     placeholder="Enter your password"
+                    error={touched.password && !!errors.password}
+                    helperText={touched.password && errors.password}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Lock sx={{ color: theme.palette.text.secondary, fontSize: 18 }} />
+                          <Lock 
+                            sx={{ 
+                              color: touched.password && errors.password 
+                                ? theme.palette.error.main 
+                                : touched.password && !errors.password && formData.password
+                                ? theme.palette.success.main
+                                : theme.palette.text.secondary, 
+                              fontSize: 18,
+                              transition: 'color 0.2s ease',
+                            }} 
+                          />
                         </InputAdornment>
                       ),
                       endAdornment: (
@@ -494,7 +621,15 @@ const Login: React.FC = () => {
                             onClick={handleClickShowPassword}
                             edge="end"
                             size="small"
-                            sx={{ color: theme.palette.text.secondary }}
+                            sx={{ 
+                              color: touched.password && errors.password 
+                                ? theme.palette.error.main 
+                                : theme.palette.text.secondary,
+                              transition: 'color 0.2s ease',
+                              '&:hover': {
+                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                              },
+                            }}
                           >
                             {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                           </IconButton>
@@ -502,22 +637,50 @@ const Login: React.FC = () => {
                       ),
                     }}
                     sx={{
-                      mb: 0.5,
+                      mb: touched.password && errors.password ? 0.5 : 0.5,
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 2,
                         backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                        transition: 'all 0.2s ease',
                         '&:hover': {
                           backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: touched.password && errors.password 
+                              ? theme.palette.error.main 
+                              : theme.palette.primary.main,
+                          },
                         },
                         '&.Mui-focused': {
                           backgroundColor: 'white',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderWidth: 2,
+                            borderColor: touched.password && errors.password 
+                              ? theme.palette.error.main 
+                              : theme.palette.primary.main,
+                          },
+                        },
+                        '&.Mui-error': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: theme.palette.error.main,
+                          },
                         },
                       },
                       '& .MuiInputBase-input': {
                         fontSize: '0.9rem',
+                        padding: '14px 14px 14px 0',
                       },
                       '& .MuiInputLabel-root': {
                         fontSize: '0.9rem',
+                        '&.Mui-focused': {
+                          color: touched.password && errors.password 
+                            ? theme.palette.error.main 
+                            : theme.palette.primary.main,
+                        },
+                      },
+                      '& .MuiFormHelperText-root': {
+                        fontSize: '0.75rem',
+                        marginTop: '4px',
+                        marginLeft: 0,
                       },
                     }}
                   />
@@ -568,7 +731,7 @@ const Login: React.FC = () => {
                     type="submit"
                     fullWidth
                     variant="contained"
-                    disabled={isLoading}
+                    disabled={isLoading || !formData.email || !formData.password || !!errors.email || !!errors.password}
                     endIcon={isLoading ? null : <ArrowForward />}
                     sx={{
                       py: 1.5,
@@ -579,7 +742,7 @@ const Login: React.FC = () => {
                       background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                       boxShadow: '0 4px 14px rgba(0, 82, 212, 0.25)',
                       transition: 'all 0.2s ease',
-                      '&:hover': {
+                      '&:hover:not(.Mui-disabled)': {
                         boxShadow: '0 6px 20px rgba(0, 82, 212, 0.35)',
                         transform: 'translateY(-1px)',
                       },
@@ -589,6 +752,7 @@ const Login: React.FC = () => {
                       '&.Mui-disabled': {
                         background: theme.palette.grey[300],
                         color: theme.palette.grey[500],
+                        boxShadow: 'none',
                       },
                     }}
                   >

@@ -175,13 +175,13 @@ const DocumentEditor: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 2 }}>
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        mb: 4,
+        mb: 2,
         flexWrap: 'wrap',
         gap: 2,
       }}>
@@ -190,10 +190,12 @@ const DocumentEditor: React.FC = () => {
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate('/document-management/library')}
             variant="outlined"
+            size="small"
+            sx={{ fontSize: '0.8rem', py: 0.5 }}
           >
             Back
           </Button>
-          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h5" sx={{ fontWeight: 600 }}>
             {id ? 'Document Editor' : 'Create New Document'}
           </Typography>
         </Box>
@@ -210,6 +212,8 @@ const DocumentEditor: React.FC = () => {
             variant={isPreview ? "contained" : "outlined"}
             startIcon={<PreviewIcon />}
             onClick={() => setIsPreview(!isPreview)}
+            size="small"
+            sx={{ fontSize: '0.8rem', py: 0.5 }}
           >
             {isPreview ? 'Edit' : 'Preview'}
           </Button>
@@ -217,6 +221,8 @@ const DocumentEditor: React.FC = () => {
             variant="outlined"
             startIcon={<CancelIcon />}
             onClick={handleCancel}
+            size="small"
+            sx={{ fontSize: '0.8rem', py: 0.5 }}
           >
             Cancel
           </Button>
@@ -225,6 +231,8 @@ const DocumentEditor: React.FC = () => {
             startIcon={<SaveIcon />}
             onClick={handleSave}
             disabled={saving}
+            size="small"
+            sx={{ fontSize: '0.8rem', py: 0.5 }}
           >
             {saving ? 'Saving...' : (id ? 'Save' : 'Create')}
           </Button>
@@ -235,7 +243,10 @@ const DocumentEditor: React.FC = () => {
               color="success"
               onClick={handleSubmitForReview}
               disabled={submitting}
-              sx={{
+              size="small"
+              sx={{ 
+                fontSize: '0.8rem', 
+                py: 0.5,
                 backgroundColor: theme.palette.success.main,
                 '&:hover': {
                   backgroundColor: theme.palette.success.dark,

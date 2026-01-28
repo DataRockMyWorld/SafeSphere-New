@@ -47,6 +47,7 @@ const ApprovalWorkflow = lazy(() => import('./components/document/ApprovalWorkfl
 const SearchDocuments = lazy(() => import('./components/document/SearchDocuments'));
 const Records = lazy(() => import('./components/document/Records'));
 const DocumentMatrix = lazy(() => import('./components/document/DocumentMatrix'));
+const ReviewScheduleDashboard = lazy(() => import('./components/document/ReviewScheduleDashboard'));
 
 // Compliance Components - lazy loaded
 const ComplianceLayout = lazy(() => import('./components/legal/ComplianceLayout'));
@@ -453,6 +454,7 @@ const Layout: React.FC = () => {
             <Route path="library/:id/edit" element={<DocumentEditor />} />
             <Route path="records" element={<Records />} />
             <Route path="matrix" element={<DocumentMatrix />} />
+            <Route path="review-schedule" element={<ReviewScheduleDashboard />} />
             <Route path="change-request/:id" element={<ChangeRequest />} />
             <Route path="change-request-management" element={<ChangeRequestManagement />} />
             <Route path="approvals" element={<ApprovalWorkflow />} />

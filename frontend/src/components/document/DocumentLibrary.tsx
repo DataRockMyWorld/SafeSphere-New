@@ -51,7 +51,6 @@ import {
   ArrowBack as ArrowBackIcon,
   FolderOpen as FolderOpenIcon,
   CreateNewFolder as CreateFolderIcon,
-  Home as HomeIcon,
   NavigateNext as NavigateNextIcon,
   Share as ShareIcon,
   Info as InfoIcon,
@@ -218,6 +217,9 @@ const ImprovedDocumentLibrary: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(24);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
+  const [deleteFolderDialogOpen, setDeleteFolderDialogOpen] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState<{ id: string; name: string; documentCount: number } | null>(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderDescription, setNewFolderDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -235,7 +237,7 @@ const ImprovedDocumentLibrary: React.FC = () => {
 
   // Breadcrumb path
   const [folderPath, setFolderPath] = useState<Array<{ label: string; value: string }>>([
-    { label: 'Home', value: '' }
+    { label: 'Folders', value: '' }
   ]);
 
   // Fetch folders from API
@@ -403,7 +405,10 @@ const ImprovedDocumentLibrary: React.FC = () => {
       return;
     }
 
-    if (!uploadFormData.category) {
+    // Use selectedFolder if inside a folder, otherwise use uploadFormData.category
+    const folderToUse = selectedFolder || uploadFormData.category;
+    
+    if (!folderToUse) {
       setSnackbar({ open: true, message: 'Please select a folder', severity: 'error' });
       return;
     }
@@ -415,9 +420,9 @@ const ImprovedDocumentLibrary: React.FC = () => {
       formData.append('description', uploadFormData.description);
       
       // Map folder value back to document_type (SYSTEM_DOCUMENT -> SYSTEM DOCUMENT)
-      const documentType = uploadFormData.category === 'SYSTEM_DOCUMENT' 
+      const documentType = folderToUse === 'SYSTEM_DOCUMENT' 
         ? 'SYSTEM DOCUMENT' 
-        : uploadFormData.category;
+        : folderToUse;
       formData.append('document_type', documentType);
 
       await uploadFile('/documents/', formData);
@@ -438,7 +443,7 @@ const ImprovedDocumentLibrary: React.FC = () => {
       setSnackbar({ open: true, message: errorMessage, severity: 'error' });
       console.error('Upload error:', err.response?.data);
     }
-  }, [selectedFile, uploadFormData, fetchDocuments, fetchFolders]);
+  }, [selectedFile, uploadFormData, selectedFolder, fetchDocuments, fetchFolders]);
 
   const handleDownload = useCallback(async (doc: Document) => {
     try {
@@ -517,49 +522,79 @@ const ImprovedDocumentLibrary: React.FC = () => {
     }
   }, [fetchDocuments]);
 
-  const handleDeleteFolder = useCallback(async (folderId: string, folderName: string) => {
-    if (!window.confirm(`Are you sure you want to delete the folder "${folderName}"?\n\nNote: The folder must be empty to delete it.`)) {
+  const handleOpenDeleteFolderDialog = useCallback((folderId: string, folderName: string, documentCount: number) => {
+    setFolderToDelete({ id: folderId, name: folderName, documentCount });
+    setDeleteConfirmationText('');
+    setDeleteFolderDialogOpen(true);
+  }, []);
+
+  const handleDeleteFolder = useCallback(async () => {
+    if (!folderToDelete) return;
+    
+    // Require typing folder name to confirm
+    if (deleteConfirmationText !== folderToDelete.name) {
+      setSnackbar({ 
+        open: true, 
+        message: 'Folder name does not match. Please type the folder name exactly to confirm deletion.', 
+        severity: 'error' 
+      });
+      return;
+    }
+
+    // Prevent deletion if folder contains files
+    if (folderToDelete.documentCount > 0) {
+      setSnackbar({ 
+        open: true, 
+        message: `Cannot delete folder. It contains ${folderToDelete.documentCount} document(s). Please remove all documents first.`, 
+        severity: 'error' 
+      });
+      setDeleteFolderDialogOpen(false);
       return;
     }
     
     try {
-      await axiosInstance.delete(`/documents/folders/${folderId}/`);
+      await axiosInstance.delete(`/documents/folders/${folderToDelete.id}/`);
       
       // Refresh folders list
       await fetchFolders();
       
       // If the deleted folder was selected, clear selection
-      const deletedFolder = folders.find(f => f.id === folderId);
+      const deletedFolder = folders.find(f => f.id === folderToDelete.id);
       if (selectedFolder && deletedFolder && deletedFolder.value === selectedFolder) {
         setSelectedFolder('');
-        setFolderPath([{ label: 'Home', value: '' }]);
+        setFolderPath([{ label: 'Folders', value: '' }]);
       }
       
       setSnackbar({ open: true, message: 'Folder deleted successfully', severity: 'success' });
       setContextMenu(null);
+      setDeleteFolderDialogOpen(false);
+      setFolderToDelete(null);
+      setDeleteConfirmationText('');
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 
                            'Failed to delete folder. Make sure the folder is empty.';
       setSnackbar({ open: true, message: errorMessage, severity: 'error' });
       console.error('Error deleting folder:', err);
     }
-  }, [fetchFolders, selectedFolder, folders]);
+  }, [folderToDelete, deleteConfirmationText, fetchFolders, selectedFolder, folders]);
 
   return (
-    <Box sx={{ p: 3, height: 'calc(100vh - 64px)', overflow: 'auto' }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+    <Box sx={{ p: 2 }}>
+      {/* Header with Prominent Search */}
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1.5 }}>
+          <Typography variant="h5" sx={{ fontWeight: 600 }}>
             Document Library
           </Typography>
           
           {user?.position === 'HSSE MANAGER' && (
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
               <Button
                 variant="outlined"
                 startIcon={<CreateFolderIcon />}
                 onClick={() => setNewFolderDialogOpen(true)}
+                size="small"
+                sx={{ fontSize: '0.8rem', py: 0.5 }}
               >
                 New Folder
               </Button>
@@ -567,6 +602,8 @@ const ImprovedDocumentLibrary: React.FC = () => {
                 variant="contained"
                 startIcon={<UploadIcon />}
                 onClick={() => setUploadDialogOpen(true)}
+                size="small"
+                sx={{ fontSize: '0.8rem', py: 0.5 }}
               >
                 Upload
               </Button>
@@ -574,8 +611,84 @@ const ImprovedDocumentLibrary: React.FC = () => {
           )}
         </Box>
 
+        {/* Prominent Search Bar - Only show when inside a folder */}
+        {selectedFolder && (
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: 1.5, 
+              mb: 1.5,
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: 2,
+              backgroundColor: theme.palette.background.paper,
+              transition: 'all 0.2s ease',
+              '&:focus-within': {
+                borderColor: theme.palette.primary.main,
+                boxShadow: `0 0 0 2px ${theme.palette.primary.main}20`,
+              },
+            }}
+          >
+            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+              <TextField
+                placeholder="Search documents by title, description, or type..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                size="medium"
+                fullWidth
+                sx={{ 
+                  flex: 1,
+                  minWidth: { xs: '100%', sm: 400 },
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: theme.palette.background.default,
+                    '&:hover': {
+                      backgroundColor: theme.palette.background.default,
+                    },
+                    '&.Mui-focused': {
+                      backgroundColor: theme.palette.background.paper,
+                    },
+                  },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchQuery && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => setSearchQuery('')}
+                        sx={{ color: theme.palette.text.secondary }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Button
+                variant="outlined"
+                startIcon={<ArrowBackIcon />}
+                onClick={() => {
+                  setSelectedFolder('');
+                  setFolderPath([{ label: 'Folders', value: '' }]);
+                  setPage(0);
+                }}
+                size="medium"
+                sx={{ 
+                  minWidth: { xs: '100%', sm: 'auto' },
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Back to Folders
+              </Button>
+            </Stack>
+          </Paper>
+        )}
+
         {/* Breadcrumb Navigation */}
-        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 2 }}>
+        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 1.5 }}>
           {folderPath.map((path, index) => (
             <Link
               key={path.value}
@@ -594,48 +707,11 @@ const ImprovedDocumentLibrary: React.FC = () => {
                 '&:hover': { textDecoration: 'underline' },
               }}
             >
-              {index === 0 && <HomeIcon fontSize="small" />}
               {path.label}
             </Link>
           ))}
         </Breadcrumbs>
       </Box>
-
-      {/* Toolbar */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-          {selectedFolder && (
-            <Button
-              variant="outlined"
-              startIcon={<ArrowBackIcon />}
-              onClick={() => {
-                setSelectedFolder('');
-                setFolderPath([{ label: 'Home', value: '' }]);
-                setPage(0);
-              }}
-              size="small"
-            >
-              Back to Folders
-            </Button>
-          )}
-          <TextField
-            placeholder="Search documents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            size="small"
-            sx={{ flex: 1, minWidth: 300 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-
-        </Stack>
-      </Paper>
 
       {/* Error Alert */}
       {error && (
@@ -644,13 +720,47 @@ const ImprovedDocumentLibrary: React.FC = () => {
         </Alert>
       )}
 
+      {/* Search Results Indicator */}
+      {searchQuery && filteredAndSortedDocuments.length > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }} icon={false}>
+          <Typography variant="body2">
+            Found <strong>{filteredAndSortedDocuments.length}</strong> document{filteredAndSortedDocuments.length !== 1 ? 's' : ''} matching "{searchQuery}"
+          </Typography>
+        </Alert>
+      )}
+
       {/* Content */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-          <CircularProgress />
+        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', mt: 8, gap: 2 }}>
+          <CircularProgress size={48} />
+          <Typography variant="body2" color="text.secondary">
+            Loading documents...
+          </Typography>
         </Box>
       ) : !selectedFolder ? (
         // Folder List View
+          folders.length === 0 ? (
+            <Paper sx={{ p: 6, textAlign: 'center' }}>
+              <FolderIcon sx={{ fontSize: 64, color: theme.palette.text.disabled, mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No Folders Available
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                {user?.position === 'HSSE MANAGER' 
+                  ? 'Create your first folder to organize documents'
+                  : 'No folders have been created yet'}
+              </Typography>
+              {user?.position === 'HSSE MANAGER' && (
+                <Button
+                  variant="contained"
+                  startIcon={<CreateFolderIcon />}
+                  onClick={() => setNewFolderDialogOpen(true)}
+                >
+                  Create Folder
+                </Button>
+              )}
+            </Paper>
+          ) : (
           <TableContainer component={Paper}>
             <Table>
               <TableHead>
@@ -716,7 +826,7 @@ const ImprovedDocumentLibrary: React.FC = () => {
                           <span>
                             <IconButton
                               size="small"
-                              onClick={() => handleDeleteFolder(folder.id, folder.name)}
+                              onClick={() => handleOpenDeleteFolderDialog(folder.id, folder.name, categoryCount[folder.value] || folder.document_count || 0)}
                               disabled={!folder.can_be_deleted}
                               color="error"
                             >
@@ -731,8 +841,40 @@ const ImprovedDocumentLibrary: React.FC = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          )
       ) : (
         // Document List View
+        filteredAndSortedDocuments.length === 0 ? (
+          <Paper sx={{ p: 6, textAlign: 'center' }}>
+            <DocumentIcon sx={{ fontSize: 64, color: theme.palette.text.disabled, mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              {searchQuery ? 'No Documents Found' : 'No Documents in This Folder'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              {searchQuery 
+                ? `No documents match "${searchQuery}". Try a different search term.`
+                : 'This folder is empty. Upload documents to get started.'}
+            </Typography>
+            {user?.position === 'HSSE MANAGER' && !searchQuery && (
+              <Button
+                variant="contained"
+                startIcon={<UploadIcon />}
+                onClick={() => setUploadDialogOpen(true)}
+              >
+                Upload Document
+              </Button>
+            )}
+            {searchQuery && (
+              <Button
+                variant="outlined"
+                onClick={() => setSearchQuery('')}
+                sx={{ mt: 1 }}
+              >
+                Clear Search
+              </Button>
+            )}
+          </Paper>
+        ) : (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -809,6 +951,7 @@ const ImprovedDocumentLibrary: React.FC = () => {
             rowsPerPageOptions={[12, 24, 48, 96]}
           />
         </TableContainer>
+        )
       )}
 
       {/* Upload Dialog */}
@@ -816,6 +959,13 @@ const ImprovedDocumentLibrary: React.FC = () => {
         <DialogTitle>Upload Document</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {selectedFolder && (
+              <Alert severity="info" icon={<InfoIcon />}>
+                <Typography variant="body2">
+                  Document will be uploaded to: <strong>{folders.find(f => f.value === selectedFolder)?.name || selectedFolder}</strong>
+                </Typography>
+              </Alert>
+            )}
             <TextField
               fullWidth
               label="Title"
@@ -830,20 +980,22 @@ const ImprovedDocumentLibrary: React.FC = () => {
               value={uploadFormData.description}
               onChange={(e) => setUploadFormData({ ...uploadFormData, description: e.target.value })}
             />
-            <FormControl fullWidth>
-              <InputLabel>Folder</InputLabel>
-              <Select
-                value={uploadFormData.category}
-                onChange={(e) => setUploadFormData({ ...uploadFormData, category: e.target.value })}
-                label="Folder"
-              >
-                {folders.map((folder) => (
-                  <MenuItem key={folder.id} value={folder.value}>
-                    {folder.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {!selectedFolder && (
+              <FormControl fullWidth>
+                <InputLabel>Folder</InputLabel>
+                <Select
+                  value={uploadFormData.category}
+                  onChange={(e) => setUploadFormData({ ...uploadFormData, category: e.target.value })}
+                  label="Folder"
+                >
+                  {folders.map((folder) => (
+                    <MenuItem key={folder.id} value={folder.value}>
+                      {folder.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
             <Button component="label" variant="outlined" startIcon={<UploadIcon />} fullWidth>
               Select File
               <input 
@@ -869,8 +1021,96 @@ const ImprovedDocumentLibrary: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleUpload} variant="contained" disabled={!selectedFile}>
+          <Button 
+            onClick={handleUpload} 
+            variant="contained" 
+            disabled={!selectedFile || !uploadFormData.title.trim() || (!selectedFolder && !uploadFormData.category)}
+          >
             Upload
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Folder Confirmation Dialog */}
+      <Dialog 
+        open={deleteFolderDialogOpen} 
+        onClose={() => {
+          setDeleteFolderDialogOpen(false);
+          setFolderToDelete(null);
+          setDeleteConfirmationText('');
+        }} 
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: 'error.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <DeleteIcon />
+          Delete Folder
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Alert severity="error" icon={false} sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              ⚠️ Warning: This action cannot be undone!
+            </Typography>
+            <Typography variant="body2">
+              You are about to permanently delete the folder <strong>"{folderToDelete?.name}"</strong>.
+            </Typography>
+          </Alert>
+
+          {folderToDelete && folderToDelete.documentCount > 0 && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                ⚠️ This folder contains {folderToDelete.documentCount} document{folderToDelete.documentCount !== 1 ? 's' : ''}!
+              </Typography>
+              <Typography variant="body2">
+                You must remove all documents from this folder before it can be deleted.
+              </Typography>
+            </Alert>
+          )}
+
+          {folderToDelete && folderToDelete.documentCount === 0 && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                This folder is empty and can be safely deleted. To confirm deletion, please type the folder name below:
+              </Typography>
+              <TextField
+                fullWidth
+                label={`Type "${folderToDelete.name}" to confirm`}
+                value={deleteConfirmationText}
+                onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                placeholder={folderToDelete.name}
+                error={deleteConfirmationText !== '' && deleteConfirmationText !== folderToDelete.name}
+                helperText={
+                  deleteConfirmationText !== '' && deleteConfirmationText !== folderToDelete.name
+                    ? 'Folder name does not match'
+                    : 'Type the exact folder name to confirm deletion'
+                }
+                autoFocus
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={() => {
+              setDeleteFolderDialogOpen(false);
+              setFolderToDelete(null);
+              setDeleteConfirmationText('');
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteFolder}
+            variant="contained"
+            color="error"
+            disabled={
+              !folderToDelete || 
+              (folderToDelete.documentCount === 0 && deleteConfirmationText !== folderToDelete.name) ||
+              folderToDelete.documentCount > 0
+            }
+            startIcon={<DeleteIcon />}
+          >
+            {folderToDelete && folderToDelete.documentCount > 0 ? 'Cannot Delete (Has Files)' : 'Delete Folder'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -996,7 +1236,8 @@ const ImprovedDocumentLibrary: React.FC = () => {
               <MenuItem 
                 onClick={() => {
                   const folder = contextMenu.item as Folder;
-                  handleDeleteFolder(folder.id, folder.name);
+                  handleOpenDeleteFolderDialog(folder.id, folder.name, categoryCount[folder.value] || folder.document_count || 0);
+                  setContextMenu(null);
                 }}
                 disabled={!contextMenu.item.can_be_deleted}
                 sx={{ color: contextMenu.item.can_be_deleted ? 'error.main' : 'text.disabled' }}

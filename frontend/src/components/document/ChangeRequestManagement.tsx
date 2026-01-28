@@ -176,9 +176,9 @@ const ChangeRequestManagement: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 2 }}>
       {/* Header */}
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 4 }}>
+      <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
         Change Request Management
       </Typography>
 
@@ -335,7 +335,11 @@ const ChangeRequestManagement: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>
+          <Button 
+            onClick={() => setDialogOpen(false)}
+            size="small"
+            sx={{ fontSize: '0.8rem', py: 0.5 }}
+          >
             {dialogType === 'view' ? 'Close' : 'Cancel'}
           </Button>
           {(dialogType === 'approve' || dialogType === 'reject') && (
@@ -344,6 +348,8 @@ const ChangeRequestManagement: React.FC = () => {
               variant="contained"
               disabled={submitting}
               color={dialogType === 'approve' ? 'success' : 'error'}
+              size="small"
+              sx={{ fontSize: '0.8rem', py: 0.5 }}
             >
               {submitting ? 'Processing...' : (dialogType === 'approve' ? 'Approve' : 'Reject')}
             </Button>
