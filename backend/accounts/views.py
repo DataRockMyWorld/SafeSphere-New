@@ -2,7 +2,7 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
-from .serializers import LoginSerializer, PasswordResetConfirmSerializer, LogoutUserSerializer, UserMeSerializer, UserSerializer, EmailVerificationSerializer, ResendVerificationEmailSerializer, NotificationSerializer
+from .serializers import LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer, LogoutUserSerializer, UserMeSerializer, UserSerializer, EmailVerificationSerializer, ResendVerificationEmailSerializer, NotificationSerializer
 from rest_framework import status
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -20,6 +20,7 @@ from django.contrib.auth import get_user_model
 from datetime import timedelta
 import traceback
 import os
+from core.mask_email import mask_email
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -85,10 +86,59 @@ class UserMeView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
+class PasswordResetRequestView(generics.GenericAPIView):
+    """View for requesting a password reset."""
+    serializer_class = PasswordResetRequestSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
+
+    def post(self, request):
+        """
+        Generate and send a password reset code to the user's email.
+        Always returns success to prevent email enumeration attacks.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        
+        try:
+            user = User.objects.get(email=email, is_active=True)
+            
+            # Generate reset code
+            reset_code = user.generate_reset_code()
+            logger.info(f"Password reset code generated for {mask_email(email)}")
+            
+            # Build reset URL
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+            reset_url = f"{frontend_url}/reset-password/{user.pk}/{reset_code}/"
+            
+            # Send password reset email
+            from .services import send_password_reset_email
+            send_password_reset_email(user, reset_url)
+            
+            logger.info(f"Password reset email sent to {mask_email(email)}")
+            
+        except User.DoesNotExist:
+            # Don't reveal that user doesn't exist (security best practice)
+            logger.warning(f"Password reset requested for non-existent email: {mask_email(email)}")
+        except Exception as e:
+            logger.error(f"Error processing password reset request for {mask_email(email)}: {str(e)}")
+            # Still return success to prevent email enumeration
+        
+        # Always return the same success message regardless of whether user exists
+        return Response(
+            {
+                "message": "If an account with that email exists, a password reset code has been sent."
+            },
+            status=status.HTTP_200_OK
+        )
+
+
 class PasswordResetConfirmView(generics.GenericAPIView):
     """View for confirming password reset."""
     serializer_class = PasswordResetConfirmSerializer
     permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
 
     def post(self, request, user_id, reset_code):
         try:

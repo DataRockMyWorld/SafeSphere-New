@@ -1,9 +1,11 @@
 from rest_framework import serializers
 from .models import (
     ISOClause, Tag, Document, ApprovalWorkflow, 
-    ChangeRequest, DocumentTemplate, Record, DocumentFolder
+    ChangeRequest, DocumentTemplate, Record, DocumentFolder,
+    DocumentDistribution, RecordDisposal
 )
 from accounts.serializers import UserMeSerializer
+from accounts.models import User
 
 def validate_file_type(value):
     """
@@ -51,23 +53,47 @@ class DocumentSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     verified_by_name = serializers.SerializerMethodField()
     approved_by_name = serializers.SerializerMethodField()
+    obsoleted_by_name = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     file = serializers.FileField(validators=[validate_file_type])
+    distribution_list = serializers.SerializerMethodField()
+    distribution_list_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=User.objects.all(),
+        write_only=True,
+        required=False,
+        source='distribution_list'
+    )
 
     class Meta:
         model = Document
         fields = [
+            # Basic fields
             'id', 'title', 'description', 'document_type', 'category',
             'content', 'tags', 'file', 'file_url', 'iso_clauses', 'version', 'revision_number',
             'status', 'expiry_date', 'next_review_date', 'created_by',
             'created_by_name', 'created_at', 'updated_at', 'verified_by',
             'verified_by_name', 'verified_at', 'approved_by', 'approved_by_name',
-            'approved_at', 'rejection_reason', 'is_active', 'template', 'metadata'
+            'approved_at', 'rejection_reason', 'is_active', 'template', 'metadata',
+            # ISO 45001: Template clarity
+            'is_template', 'source_template',
+            # ISO 45001: Classification
+            'document_classification',
+            # ISO 45001: Distribution
+            'distribution_list', 'distribution_list_ids',
+            # ISO 45001: Retention
+            'retention_period_years',
+            # ISO 45001: Location
+            'storage_location',
+            # ISO 45001: Access
+            'access_level',
+            # ISO 45001: Obsolete control
+            'is_obsolete', 'obsoleted_at', 'obsoleted_by_name', 'replaced_by'
         ]
         read_only_fields = [
             'created_by', 'created_at', 'updated_at', 'verified_by',
             'verified_at', 'approved_by', 'approved_at', 'version',
-            'revision_number', 'status'
+            'revision_number', 'status', 'is_template', 'obsoleted_at'
         ]
 
     def get_created_by_name(self, obj):
@@ -78,6 +104,21 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     def get_approved_by_name(self, obj):
         return obj.approved_by.get_full_name if obj.approved_by else None
+    
+    def get_obsoleted_by_name(self, obj):
+        return obj.obsoleted_by.get_full_name if obj.obsoleted_by else None
+    
+    def get_distribution_list(self, obj):
+        """Get list of users who have access to this document."""
+        return [
+            {
+                'id': user.id,
+                'full_name': user.get_full_name,
+                'email': user.email,
+                'position': user.position
+            }
+            for user in obj.distribution_list.all()
+        ]
 
     def get_file_url(self, obj):
         if obj.file:
@@ -90,6 +131,8 @@ class DocumentSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Set the created_by field to the current user
         validated_data['created_by'] = self.context['request'].user
+        # Ensure is_template is False for new documents
+        validated_data['is_template'] = False
         return super().create(validated_data)
 
 
@@ -177,22 +220,52 @@ class CreateDocumentFromTemplateSerializer(serializers.Serializer):
 class RecordSerializer(serializers.ModelSerializer):
     submitted_by = UserMeSerializer(read_only=True)
     reviewed_by = UserMeSerializer(read_only=True)
+    locked_by = UserMeSerializer(read_only=True)
     form_document = DocumentSerializer(read_only=True)
     form_document_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    source_document = DocumentSerializer(read_only=True)
+    source_document_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    parent_record = serializers.SerializerMethodField()
     submitted_file = serializers.FileField(validators=[validate_file_type])
     submitted_file_url = serializers.SerializerMethodField()
+    days_until_disposal = serializers.SerializerMethodField()
 
     class Meta:
         model = Record
         fields = [
-            'id', 'record_number', 'title', 'notes', 'form_document', 'form_document_id', 'submitted_by', 
-            'submitted_file', 'submitted_file_url', 'status', 'created_at', 'year',
+            # Basic fields
+            'id', 'record_number', 'title', 'notes', 
+            # Document links
+            'form_document', 'form_document_id', 'source_document', 'source_document_id',
+            # User fields
+            'submitted_by', 'reviewed_by', 'locked_by',
+            # File
+            'submitted_file', 'submitted_file_url',
+            # Status
+            'status', 'created_at', 'year',
             'reviewed_by', 'reviewed_at', 'rejection_reason',
+            # ISO 45001: Classification
+            'record_classification',
+            # ISO 45001: Retention
+            'retention_period_years', 'disposal_date', 'days_until_disposal',
+            # ISO 45001: Location
+            'storage_location', 'storage_type',
+            # Context
+            'department', 'facility_location',
+            # ISO 45001: Immutability
+            'is_locked', 'locked_at', 'locked_by',
+            # Correction tracking
+            'correction_version', 'parent_record',
+            # Access
+            'access_restrictions',
+            # Notifications
             'notification_sent', 'email_sent'
         ]
         read_only_fields = [
             'record_number', 'submitted_by', 'status', 'created_at', 'year',
             'reviewed_by', 'reviewed_at', 'rejection_reason',
+            'is_locked', 'locked_at', 'locked_by',
+            'disposal_date', 'days_until_disposal',
             'notification_sent', 'email_sent'
         ]
     
@@ -210,9 +283,113 @@ class RecordSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.submitted_file.url)
             return obj.submitted_file.url
         return None
+    
+    def get_parent_record(self, obj):
+        """Get parent record if this is a correction."""
+        if obj.parent_record:
+            return {
+                'id': str(obj.parent_record.id),
+                'record_number': obj.parent_record.record_number,
+                'title': obj.parent_record.title,
+            }
+        return None
+    
+    def get_days_until_disposal(self, obj):
+        """Calculate days until disposal date."""
+        if obj.disposal_date:
+            from datetime import date
+            today = date.today()
+            delta = obj.disposal_date - today
+            return delta.days
+        return None
 
     def create(self, validated_data):
-        validated_data['submitted_by'] = self.context['request'].user
+        user = self.context['request'].user
+        validated_data['submitted_by'] = user
+        
+        # Use source_document if provided, otherwise fall back to form_document
+        if 'source_document_id' in validated_data and validated_data['source_document_id']:
+            from documents.models import Document
+            validated_data['source_document'] = Document.objects.get(id=validated_data.pop('source_document_id'))
+        elif 'form_document_id' in validated_data and validated_data['form_document_id']:
+            from documents.models import Document
+            validated_data['source_document'] = Document.objects.get(id=validated_data.pop('form_document_id'))
+            validated_data['form_document'] = validated_data['source_document']  # Backward compatibility
+        
+        # Set department from user if not provided
+        if 'department' not in validated_data or not validated_data['department']:
+            if user.department:
+                validated_data['department'] = user.department
+        
+        # Handle year selection (user can specify year, but backend validates)
+        # The year will be set from created_at in the model's save() method
+        # But we can allow user to specify it for records created retroactively
+        if 'year' in validated_data:
+            # Validate year is reasonable (not in future, not too old)
+            from django.utils import timezone
+            current_year = timezone.now().year
+            user_year = validated_data.pop('year')
+            if isinstance(user_year, str):
+                user_year = int(user_year)
+            # Allow years from 2000 to current year + 1 (for planning)
+            if 2000 <= user_year <= current_year + 1:
+                # Year will be set in save() method, but we can store it for reference
+                # The actual year will be determined by created_at in save()
+                pass  # Year is set automatically from created_at
+        
+        return super().create(validated_data)
+
+
+class DocumentDistributionSerializer(serializers.ModelSerializer):
+    """Serializer for document distribution tracking."""
+    user = UserMeSerializer(read_only=True)
+    user_id = serializers.IntegerField(write_only=True)
+    distributed_by_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DocumentDistribution
+        fields = [
+            'id', 'document', 'user', 'user_id', 'distributed_at',
+            'distributed_by', 'distributed_by_name', 'acknowledged',
+            'acknowledged_at', 'notes'
+        ]
+        read_only_fields = ['distributed_at', 'distributed_by']
+    
+    def get_distributed_by_name(self, obj):
+        return obj.distributed_by.get_full_name if obj.distributed_by else None
+    
+    def create(self, validated_data):
+        validated_data['distributed_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class RecordDisposalSerializer(serializers.ModelSerializer):
+    """Serializer for record disposal tracking."""
+    record = serializers.SerializerMethodField()
+    record_id = serializers.UUIDField(write_only=True)
+    disposed_by_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = RecordDisposal
+        fields = [
+            'id', 'record', 'record_id', 'disposal_date', 'disposal_method',
+            'disposed_by', 'disposed_by_name', 'disposal_certificate',
+            'notes', 'created_at'
+        ]
+        read_only_fields = ['created_at']
+    
+    def get_record(self, obj):
+        return {
+            'id': str(obj.record.id),
+            'record_number': obj.record.record_number,
+            'title': obj.record.title,
+        }
+    
+    def get_disposed_by_name(self, obj):
+        return obj.disposed_by.get_full_name if obj.disposed_by else None
+    
+    def create(self, validated_data):
+        validated_data['disposed_by'] = self.context['request'].user
         return super().create(validated_data)
 
 

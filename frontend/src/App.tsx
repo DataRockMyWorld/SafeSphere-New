@@ -31,6 +31,7 @@ const Login = lazy(() => import('./components/Login'));
 const Register = lazy(() => import('./components/Register'));
 const Profile = lazy(() => import('./components/Profile'));
 const PasswordReset = lazy(() => import('./components/PasswordReset'));
+const ForgotPassword = lazy(() => import('./components/ForgotPassword'));
 const UnifiedNavigation = lazy(() => import('./components/navigation/UnifiedNavigation'));
 
 // Document Components - lazy loaded
@@ -42,10 +43,10 @@ const DocumentLibrary = lazy(() => import('./components/document/DocumentLibrary
 const DocumentEditor = lazy(() => import('./components/document/DocumentEditor'));
 const ChangeRequest = lazy(() => import('./components/document/ChangeRequest'));
 const ChangeRequestManagement = lazy(() => import('./components/document/ChangeRequestManagement'));
-const QuickReports = lazy(() => import('./components/document/QuickReports'));
 const ApprovalWorkflow = lazy(() => import('./components/document/ApprovalWorkflow'));
 const SearchDocuments = lazy(() => import('./components/document/SearchDocuments'));
 const Records = lazy(() => import('./components/document/Records'));
+const DocumentMatrix = lazy(() => import('./components/document/DocumentMatrix'));
 
 // Compliance Components - lazy loaded
 const ComplianceLayout = lazy(() => import('./components/legal/ComplianceLayout'));
@@ -122,16 +123,16 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#0052D4',
-      light: '#2979ff',
-      dark: '#003494',
+      main: '#32CD32', // Lime Green
+      light: '#7CFC00', // Lawn Green (lighter lime)
+      dark: '#228B22', // Forest Green (darker lime)
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#4364F7',
-      light: '#6B8AFF',
-      dark: '#2F45AC',
-      contrastText: '#ffffff',
+      main: '#ADFF2F', // Green Yellow
+      light: '#CCFF66', // Lighter green yellow
+      dark: '#9ACD32', // Yellow Green (darker)
+      contrastText: '#000000',
     },
     background: {
       default: '#f8f9fa',
@@ -277,7 +278,7 @@ const theme = createTheme({
           fontSize: '0.875rem',
           letterSpacing: '0.01em',
           '&:hover': {
-            boxShadow: '0 4px 12px rgba(0, 82, 212, 0.25)',
+            boxShadow: '0 4px 12px rgba(50, 205, 50, 0.25)', // Lime shadow
           },
         },
       },
@@ -288,7 +289,7 @@ const theme = createTheme({
           borderRadius: 16,
           boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
           '&:hover': {
-            boxShadow: '0 8px 24px rgba(0, 82, 212, 0.12)',
+            boxShadow: '0 8px 24px rgba(50, 205, 50, 0.12)', // Lime shadow
           },
         },
       },
@@ -303,7 +304,7 @@ const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          background: 'linear-gradient(135deg, #0052D4 0%, #4364F7 100%)',
+          background: 'linear-gradient(135deg, #32CD32 0%, #ADFF2F 100%)', // Lime gradient
           borderRadius: 0,
         },
       },
@@ -320,7 +321,7 @@ const theme = createTheme({
         root: {
           fontFamily: '"Inter", sans-serif',
           '&:hover': {
-            backgroundColor: 'rgba(0, 82, 212, 0.08)',
+            backgroundColor: 'rgba(50, 205, 50, 0.08)', // Lime hover
           },
         },
       },
@@ -433,6 +434,7 @@ const Layout: React.FC = () => {
           <Route path="/dashboard" element={<PrivateRoute><UnifiedNavigation currentModule="Dashboard"><Dashboard /></UnifiedNavigation></PrivateRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/reset-password/:user_id/:reset_code" element={<PasswordReset />} />
           
@@ -450,7 +452,7 @@ const Layout: React.FC = () => {
             <Route path="library/:id" element={<DocumentDetail />} />
             <Route path="library/:id/edit" element={<DocumentEditor />} />
             <Route path="records" element={<Records />} />
-            <Route path="quick-reports" element={<QuickReports />} />
+            <Route path="matrix" element={<DocumentMatrix />} />
             <Route path="change-request/:id" element={<ChangeRequest />} />
             <Route path="change-request-management" element={<ChangeRequestManagement />} />
             <Route path="approvals" element={<ApprovalWorkflow />} />

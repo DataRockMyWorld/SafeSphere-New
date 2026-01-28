@@ -1,6 +1,6 @@
 from django.urls import path, include
 from .views import (
-    LoginUserView, LogoutUserView, UserMeView, PasswordResetConfirmView,
+    LoginUserView, LogoutUserView, UserMeView, PasswordResetRequestView, PasswordResetConfirmView,
     EmailVerificationView, ResendVerificationEmailView, UserListCreateAPIView,
     UserDetailAPIView, CreateUserView, NotificationListView, NotificationDetailView,
     MarkAllNotificationsReadView, DeleteAllNotificationsView, CreateWelcomeNotificationView,
@@ -12,6 +12,7 @@ urlpatterns = [
     path('login/', LoginUserView.as_view(), name='login'),
     path('logout/', LogoutUserView.as_view(), name='logout'),
     path('me/', UserMeView.as_view(), name='user-me'),  # Changed from 'me' to 'user-me'
+    path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password-reset/<int:user_id>/<str:reset_code>/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('verify-email/<int:user_id>/<str:token>/', EmailVerificationView.as_view(), name='email-verification'),
     path('resend-verification/', ResendVerificationEmailView.as_view(), name='resend-verification'),

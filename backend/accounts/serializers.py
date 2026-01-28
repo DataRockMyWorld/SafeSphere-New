@@ -12,6 +12,24 @@ from .models import Notification
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Serializer for requesting a password reset."""
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self, value):
+        """Validate that the email exists (but don't reveal if it doesn't for security)."""
+        User = get_user_model()
+        try:
+            user = User.objects.get(email=value)
+            if not user.is_active:
+                # Don't reveal that account is inactive
+                pass
+        except User.DoesNotExist:
+            # Don't reveal that user doesn't exist (security best practice)
+            pass
+        return value
+
+
 class PasswordResetConfirmSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8)
     confirm_password = serializers.CharField(write_only=True, required=True, min_length=8)

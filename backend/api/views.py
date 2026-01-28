@@ -86,6 +86,15 @@ class DocumentListCreateAPIView(generics.ListCreateAPIView):
             # Map SYSTEM_DOCUMENT (folder value) to SYSTEM DOCUMENT (model value)
             document_type = 'SYSTEM DOCUMENT' if category == 'SYSTEM_DOCUMENT' else category
             queryset = queryset.filter(document_type=document_type)
+            
+            # For FORM folder: Only show templates (not records)
+            # Templates are documents with document_type='FORM' that are NOT records
+            # Records are stored separately in the Record model
+            if document_type == 'FORM':
+                # Ensure we only show actual form templates (documents), not records
+                # Records are in a separate model, so this filter ensures we only get Document instances
+                # which are templates by definition when document_type='FORM'
+                queryset = queryset.filter(is_template=False)  # Documents are not templates (templates are in DocumentTemplate model)
         
         return queryset
 
@@ -500,6 +509,118 @@ class DocumentDashboardAPIView(APIView):
         except Exception as e:
             return Response(
                 {"error": f"Failed to fetch dashboard data: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# =============================
+# Document Review Schedule Dashboard API View
+# =============================
+class DocumentReviewScheduleAPIView(APIView):
+    """API endpoint for document review schedule dashboard."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from datetime import date, timedelta
+        from django.db.models import Q
+        
+        try:
+            today = date.today()
+            thirty_days = today + timedelta(days=30)
+            sixty_days = today + timedelta(days=60)
+            ninety_days = today + timedelta(days=90)
+            
+            # Get all approved documents with review dates
+            documents = Document.objects.filter(
+                status='APPROVED',
+                is_obsolete=False
+            ).select_related('approved_by', 'created_by').prefetch_related('iso_clauses')
+            
+            overdue_docs = []
+            due_soon_docs = []  # Within 30 days
+            upcoming_docs = []  # 31-60 days
+            later_docs = []  # 61-90 days
+            no_review_date = []
+            
+            for doc in documents:
+                if not doc.next_review_date:
+                    no_review_date.append({
+                        'id': str(doc.id),
+                        'title': doc.title,
+                        'document_type': doc.document_type,
+                        'version': doc.version,
+                        'revision_number': float(doc.revision_number),
+                        'approved_at': doc.approved_at.isoformat() if doc.approved_at else None,
+                        'approved_by': doc.approved_by.get_full_name() if doc.approved_by else None,
+                        'status': doc.status,
+                        'document_classification': doc.document_classification,
+                        'days_until_review': None,
+                        'is_overdue': False,
+                    })
+                    continue
+                
+                days_until = (doc.next_review_date - today).days
+                is_overdue = days_until < 0
+                
+                doc_data = {
+                    'id': str(doc.id),
+                    'title': doc.title,
+                    'document_type': doc.document_type,
+                    'version': doc.version,
+                    'revision_number': float(doc.revision_number),
+                    'next_review_date': doc.next_review_date.isoformat(),
+                    'expiry_date': doc.expiry_date.isoformat() if doc.expiry_date else None,
+                    'approved_at': doc.approved_at.isoformat() if doc.approved_at else None,
+                    'approved_by': doc.approved_by.get_full_name() if doc.approved_by else None,
+                    'status': doc.status,
+                    'document_classification': doc.document_classification,
+                    'days_until_review': days_until,
+                    'is_overdue': is_overdue,
+                }
+                
+                if is_overdue:
+                    overdue_docs.append(doc_data)
+                elif days_until <= 30:
+                    due_soon_docs.append(doc_data)
+                elif days_until <= 60:
+                    upcoming_docs.append(doc_data)
+                elif days_until <= 90:
+                    later_docs.append(doc_data)
+            
+            # Sort by urgency (overdue first, then by days until review)
+            overdue_docs.sort(key=lambda x: x['days_until_review'])
+            due_soon_docs.sort(key=lambda x: x['days_until_review'])
+            upcoming_docs.sort(key=lambda x: x['days_until_review'])
+            later_docs.sort(key=lambda x: x['days_until_review'])
+            
+            # Statistics
+            total_docs = documents.count()
+            total_with_review_dates = total_docs - len(no_review_date)
+            overdue_count = len(overdue_docs)
+            due_soon_count = len(due_soon_docs)
+            
+            response_data = {
+                'statistics': {
+                    'total_documents': total_docs,
+                    'with_review_dates': total_with_review_dates,
+                    'without_review_dates': len(no_review_date),
+                    'overdue': overdue_count,
+                    'due_soon': due_soon_count,
+                    'upcoming': len(upcoming_docs),
+                    'later': len(later_docs),
+                },
+                'overdue': overdue_docs[:50],  # Limit to 50 for performance
+                'due_soon': due_soon_docs[:50],
+                'upcoming': upcoming_docs[:50],
+                'later': later_docs[:50],
+                'no_review_date': no_review_date[:50],
+            }
+            
+            return Response(response_data)
+            
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to fetch review schedule: {str(e)}"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

@@ -133,6 +133,97 @@ class Document(models.Model):
 
     template = models.ForeignKey('DocumentTemplate', on_delete=models.SET_NULL, null=True, blank=True, related_name='documents')
     metadata = models.JSONField(default=dict, help_text="Document-specific metadata and content")
+    
+    # ISO 45001: Document Classification
+    DOCUMENT_CLASSIFICATION_CHOICES = [
+        ('CONTROLLED', 'Controlled Document'),
+        ('UNCONTROLLED', 'Uncontrolled Document'),
+        ('REFERENCE', 'Reference Document'),
+        ('EXTERNAL', 'External Document'),
+    ]
+    
+    ACCESS_LEVEL_CHOICES = [
+        ('PUBLIC', 'Public'),
+        ('INTERNAL', 'Internal'),
+        ('RESTRICTED', 'Restricted'),
+        ('CONFIDENTIAL', 'Confidential'),
+    ]
+    
+    # Clarification: This is NOT a template
+    is_template = models.BooleanField(
+        default=False,
+        help_text="Explicit flag: This document is NOT a template (templates are in DocumentTemplate model)"
+    )
+    
+    # Source template (if created from a template)
+    source_template = models.ForeignKey(
+        'DocumentTemplate',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='documents_created',
+        help_text="The template this document was created from"
+    )
+    
+    # ISO 45001: Document Classification
+    document_classification = models.CharField(
+        max_length=20,
+        choices=DOCUMENT_CLASSIFICATION_CHOICES,
+        default='CONTROLLED',
+        help_text="Classification of this document for ISO 45001 compliance"
+    )
+    
+    # ISO 45001: Distribution Control
+    distribution_list = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='distributed_documents',
+        help_text="Users who have access to this document"
+    )
+    
+    # ISO 45001: Retention Management (for records created from this document)
+    retention_period_years = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="How long records created from this document should be retained (years)"
+    )
+    
+    # ISO 45001: Storage Location
+    storage_location = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Physical or electronic storage location"
+    )
+    
+    # ISO 45001: Access Level
+    access_level = models.CharField(
+        max_length=20,
+        choices=ACCESS_LEVEL_CHOICES,
+        default='INTERNAL',
+        help_text="Access level for this document"
+    )
+    
+    # ISO 45001: Obsolete Document Control
+    is_obsolete = models.BooleanField(
+        default=False,
+        help_text="Mark document as obsolete when replaced by a new version"
+    )
+    obsoleted_at = models.DateTimeField(null=True, blank=True)
+    obsoleted_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        related_name='docs_obsoleted',
+        on_delete=models.SET_NULL
+    )
+    replaced_by = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        related_name='replaces',
+        on_delete=models.SET_NULL,
+        help_text="New document version that replaces this one"
+    )
 
     def __str__(self):
         return self.title
@@ -501,6 +592,9 @@ class Record(models.Model):
     Stores submitted form data as an uploaded file.
     Includes an approval workflow with email notifications.
     
+    ISO 45001 Compliant: Records are immutable once approved, have retention periods,
+    and are classified for proper management.
+    
     Auto-approval: Records submitted by Admin/HSSE Managers are auto-approved.
     Year categorization: Records organized by submission year.
     """
@@ -509,12 +603,50 @@ class Record(models.Model):
         ('APPROVED', 'Approved'),
         ('REJECTED', 'Rejected'),
     ]
+    
+    RECORD_CLASSIFICATION_CHOICES = [
+        ('LEGAL', 'Legal Requirement'),
+        ('OPERATIONAL', 'Operational Record'),
+        ('AUDIT', 'Audit Evidence'),
+        ('INCIDENT', 'Incident Record'),
+        ('TRAINING', 'Training Record'),
+        ('INSPECTION', 'Inspection Record'),
+        ('MAINTENANCE', 'Maintenance Record'),
+        ('HEALTH', 'Health Surveillance Record'),
+    ]
+    
+    STORAGE_TYPE_CHOICES = [
+        ('ELECTRONIC', 'Electronic'),
+        ('PHYSICAL', 'Physical'),
+        ('HYBRID', 'Hybrid'),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     record_number = models.CharField(max_length=20, unique=True, editable=False, null=True, blank=True, help_text="Auto-generated: REC-YYYY-NNN")
     title = models.CharField(max_length=255, help_text="Descriptive name for this record submission")
     notes = models.TextField(blank=True, help_text="Optional: Additional notes or comments")
-    form_document = models.ForeignKey(Document, on_delete=models.PROTECT, related_name='records', limit_choices_to={'document_type': 'FORM'}, null=True, blank=True)
+    
+    # Source Document (the approved form this record was created from)
+    source_document = models.ForeignKey(
+        Document, 
+        on_delete=models.PROTECT, 
+        related_name='completed_records',
+        limit_choices_to={'document_type': 'FORM', 'status': 'APPROVED'},
+        null=True, 
+        blank=True,
+        help_text="The approved form document this record was created from"
+    )
+    # Keep form_document for backward compatibility during migration
+    form_document = models.ForeignKey(
+        Document, 
+        on_delete=models.PROTECT, 
+        related_name='records', 
+        limit_choices_to={'document_type': 'FORM'}, 
+        null=True, 
+        blank=True,
+        help_text="DEPRECATED: Use source_document instead. Kept for backward compatibility."
+    )
+    
     submitted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='records_submitted')
     submitted_file = models.FileField(upload_to='records/%Y/%m/')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING_REVIEW')
@@ -525,6 +657,91 @@ class Record(models.Model):
     reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='records_reviewed')
     reviewed_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(blank=True)
+    
+    # ISO 45001: Record Classification
+    record_classification = models.CharField(
+        max_length=20,
+        choices=RECORD_CLASSIFICATION_CHOICES,
+        default='OPERATIONAL',
+        help_text="Classification of this record for ISO 45001 compliance"
+    )
+    
+    # ISO 45001: Retention Management
+    retention_period_years = models.IntegerField(
+        default=7,
+        help_text="Number of years to retain this record (ISO 45001 requirement)"
+    )
+    disposal_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Auto-calculated: created_at + retention_period_years"
+    )
+    
+    # ISO 45001: Location Tracking
+    storage_location = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Physical or electronic storage location"
+    )
+    storage_type = models.CharField(
+        max_length=20,
+        choices=STORAGE_TYPE_CHOICES,
+        default='ELECTRONIC',
+        help_text="Type of storage for this record"
+    )
+    
+    # Context Information
+    department = models.CharField(
+        max_length=50,
+        choices=User.DEPARTMENT_CHOICES,
+        blank=True,
+        help_text="Department that created this record"
+    )
+    facility_location = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Facility or site location where this record applies"
+    )
+    
+    # ISO 45001: Immutability (Records cannot be modified after approval)
+    is_locked = models.BooleanField(
+        default=False,
+        help_text="Lock record after approval to prevent modification (ISO 45001 requirement)"
+    )
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        related_name='records_locked',
+        on_delete=models.SET_NULL
+    )
+    
+    # Correction Tracking (if record needs correction, create new record)
+    correction_version = models.IntegerField(
+        default=1,
+        help_text="Version number if this is a correction of a previous record"
+    )
+    parent_record = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        related_name='corrections',
+        on_delete=models.SET_NULL,
+        help_text="Link to original record if this is a correction"
+    )
+    
+    # Access Restrictions
+    access_restrictions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="JSON defining who can access this record (roles, departments, etc.)"
+    )
+    
+    # Related Records (for linking to incidents, audits, etc.)
+    # Note: These will be added when those models exist
+    # related_incident = models.ForeignKey('incidents.Incident', null=True, blank=True, related_name='records')
+    # related_audit = models.ForeignKey('audits.Audit', null=True, blank=True, related_name='records')
     
     # Notification tracking
     notification_sent = models.BooleanField(default=False)
@@ -542,26 +759,98 @@ class Record(models.Model):
         return f"{self.record_number} - {display_title} by {self.submitted_by.get_full_name if self.submitted_by else 'Unknown'}"
     
     def save(self, *args, **kwargs):
-        """Auto-generate record number and set year on creation."""
-        is_new = self.pk is None
+        """Auto-generate record number, set year, calculate disposal date, and handle locking."""
+        # Use Django's _state.adding to properly detect new records
+        # This works even if pk is pre-assigned (e.g., UUIDField with default)
+        is_new = self._state.adding if hasattr(self, '_state') else (self.pk is None)
+        was_approved = False
         
-        # Set year from created_at if not set (for existing records)
+        # Check if status changed to APPROVED (only for existing records)
+        if not is_new and self.pk:
+            try:
+                old_record = Record.objects.get(pk=self.pk)
+                was_approved = (old_record.status != 'APPROVED' and self.status == 'APPROVED')
+            except Record.DoesNotExist:
+                # Record doesn't exist yet, treat as new
+                is_new = True
+                was_approved = False
+        
+        # Set year from created_at if not set
+        # Note: Year is primarily determined by created_at for ISO 45001 compliance
+        # Users can submit records for past years, but the year field reflects when the record was actually created
         if not self.year:
-            self.year = self.created_at.year if self.created_at else timezone.now().year
+            if self.created_at:
+                self.year = self.created_at.year
+            else:
+                self.year = timezone.now().year
+        # If year was explicitly set but doesn't match created_at, use created_at (for data integrity)
+        elif self.created_at and self.year != self.created_at.year:
+            # Log a warning but use created_at year for consistency
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Record year mismatch: specified {self.year} but created_at is {self.created_at.year}. Using created_at year.")
+            self.year = self.created_at.year
+        
+        # Migrate form_document to source_document if needed
+        if self.form_document and not self.source_document:
+            self.source_document = self.form_document
+        
+        # Calculate disposal date if not set
+        if not self.disposal_date and self.created_at:
+            from datetime import timedelta
+            disposal_date = self.created_at.date() + timedelta(days=self.retention_period_years * 365)
+            self.disposal_date = disposal_date
         
         if is_new:
             # Generate record number: REC-YYYY-NNN
             if not self.record_number:
-                year = timezone.now().year
-                # Get count of records for this year
-                year_count = Record.objects.filter(year=year).count() + 1
-                self.record_number = f"REC-{year}-{year_count:03d}"
+                year = self.year
+                # Get count of records for this year (including this one)
+                # Use a more reliable method to avoid race conditions
+                existing_count = Record.objects.filter(year=year).count()
+                # Check for any records with the same number pattern to avoid duplicates
+                max_num = 0
+                for existing_record in Record.objects.filter(year=year).exclude(record_number__isnull=True):
+                    if existing_record.record_number and existing_record.record_number.startswith(f"REC-{year}-"):
+                        try:
+                            num_part = existing_record.record_number.split('-')[-1]
+                            num = int(num_part)
+                            if num > max_num:
+                                max_num = num
+                        except (ValueError, IndexError):
+                            pass
+                
+                # Use max found + 1, or existing count + 1 if no numbers found
+                next_num = max(max_num + 1, existing_count + 1)
+                self.record_number = f"REC-{year}-{next_num:03d}"
             
             # Auto-approve for Admin and HSSE Manager
             if self.submitted_by and (self.submitted_by.is_superuser or self.submitted_by.position == 'HSSE MANAGER'):
                 self.status = 'APPROVED'
                 self.reviewed_by = self.submitted_by
                 self.reviewed_at = timezone.now()
+                self.is_locked = True
+                self.locked_at = timezone.now()
+                self.locked_by = self.submitted_by
+        
+        # Lock record when approved (for existing records that just got approved)
+        if was_approved and not self.is_locked:
+            self.is_locked = True
+            self.locked_at = timezone.now()
+            self.locked_by = self.reviewed_by
+        
+        # Prevent modification if locked (only for existing records)
+        if not is_new and self.is_locked:
+            try:
+                old_record = Record.objects.get(pk=self.pk)
+                # Allow only status changes and rejection_reason updates
+                allowed_changes = ['status', 'rejection_reason', 'reviewed_by', 'reviewed_at']
+                for field in self._meta.fields:
+                    if field.name not in allowed_changes:
+                        setattr(self, field.name, getattr(old_record, field.name))
+            except Record.DoesNotExist:
+                # Record doesn't exist, skip protection
+                pass
         
         super().save(*args, **kwargs)
         
@@ -745,3 +1034,83 @@ This is an automated notification from SafeSphere Document Management System.
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Failed to send rejection notification for {self.record_number}: {e}")
+
+
+# =============================
+# Document Distribution (ISO 45001)
+# =============================
+class DocumentDistribution(models.Model):
+    """
+    Track document distribution to users for ISO 45001 compliance.
+    Ensures proper control of who receives which documents.
+    """
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='distributions')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='document_distributions')
+    distributed_at = models.DateTimeField(auto_now_add=True)
+    distributed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='distributions_made'
+    )
+    acknowledged = models.BooleanField(default=False, help_text="User has acknowledged receipt")
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, help_text="Additional notes about this distribution")
+    
+    class Meta:
+        unique_together = ['document', 'user']
+        ordering = ['-distributed_at']
+        verbose_name = "Document Distribution"
+        verbose_name_plural = "Document Distributions"
+    
+    def __str__(self):
+        return f"{self.document.title} → {self.user.get_full_name()}"
+
+
+# =============================
+# Record Disposal (ISO 45001)
+# =============================
+class RecordDisposal(models.Model):
+    """
+    Track record disposal for audit trail and ISO 45001 compliance.
+    Records must be disposed of according to retention periods.
+    """
+    DISPOSAL_METHOD_CHOICES = [
+        ('DIGITAL_DELETE', 'Digital Deletion'),
+        ('PHYSICAL_DESTROY', 'Physical Destruction'),
+        ('ARCHIVE', 'Archive'),
+        ('TRANSFER', 'Transfer to External Storage'),
+    ]
+    
+    record = models.ForeignKey(Record, on_delete=models.CASCADE, related_name='disposals')
+    disposal_date = models.DateField(help_text="Date when record was disposed")
+    disposal_method = models.CharField(
+        max_length=50,
+        choices=DISPOSAL_METHOD_CHOICES,
+        help_text="Method used to dispose of the record"
+    )
+    disposed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='records_disposed'
+    )
+    disposal_certificate = models.FileField(
+        upload_to='disposals/',
+        null=True,
+        blank=True,
+        help_text="Certificate or proof of disposal"
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about the disposal process"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-disposal_date']
+        verbose_name = "Record Disposal"
+        verbose_name_plural = "Record Disposals"
+    
+    def __str__(self):
+        return f"Disposal of {self.record.record_number} on {self.disposal_date}"

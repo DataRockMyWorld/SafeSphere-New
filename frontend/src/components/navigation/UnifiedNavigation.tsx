@@ -62,7 +62,7 @@ import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../NotificationBell';
 import logo from '../../assets/logo.png';
 
-const DRAWER_WIDTH = 280;
+const DRAWER_WIDTH = 240;
 const COLLAPSED_DRAWER_WIDTH = 80;
 
 // All available modules
@@ -73,10 +73,9 @@ const ALL_MODULES = [
     icon: <DocumentIcon />,
     path: '/document-management',
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/document-management' },
       { title: 'Library', icon: <LibraryIcon />, path: '/document-management/library' },
       { title: 'Records', icon: <RecordsIcon />, path: '/document-management/records' },
-      { title: 'Quick Reports', icon: <ReportIcon />, path: '/document-management/quick-reports' }, // Replaced History
+      { title: 'Document Matrix', icon: <ReportIcon />, path: '/document-management/matrix' },
       { title: 'Change Requests', icon: <ChangeRequestIcon />, path: '/document-management/change-request-management' },
       { title: 'Approvals', icon: <ApprovalIcon />, path: '/document-management/approvals' },
     ],
@@ -87,7 +86,6 @@ const ALL_MODULES = [
     icon: <LegalIcon />,
     path: '/compliance',
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/compliance', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
       { title: 'Obligations', icon: <LegalScaleIcon />, path: '/compliance/register', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
       { title: 'Annual Review', icon: <HistoryIcon />, path: '/compliance/review', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
       { title: 'Calendar', icon: <ScheduleIcon />, path: '/compliance/calendar', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
@@ -102,7 +100,6 @@ const ALL_MODULES = [
     icon: <PPEIcon />,
     path: '/ppe',
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/ppe', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
       { title: 'PPE Register', icon: <AssignmentIcon />, path: '/ppe/register', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
       { title: 'Stock Position', icon: <StockIcon />, path: '/ppe/stock-position', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
       { title: 'Inventory', icon: <InventoryIcon />, path: '/ppe/inventory', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
@@ -122,7 +119,6 @@ const ALL_MODULES = [
     path: '/audit',
     requiresRole: ['HSSE MANAGER', 'ADMIN'], // Entire module restricted to HSSE Manager/Admin
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/audit/dashboard' },
       { title: 'Audit Planner', icon: <ScheduleIcon />, path: '/audit/planner' },
       { title: 'Findings', icon: <FindingsIcon />, path: '/audit/findings' },
       { title: 'Management Review', icon: <AssignmentIcon />, path: '/audit/management-review' },
@@ -137,7 +133,6 @@ const ALL_MODULES = [
     icon: <AssignmentIcon />,
     path: '/risks',
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/risks/dashboard', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
       { title: 'Risk Matrix', icon: <DashboardIcon />, path: '/risks/matrix' }, // Available to all users (read-only)
       { title: 'Risk Register', icon: <AssignmentIcon />, path: '/risks/register' }, // Available to all users (read-only)
     ],
@@ -148,7 +143,6 @@ const ALL_MODULES = [
     icon: <AdminIcon />,
     path: '/admin',
     items: [
-      { title: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
       { title: 'Users', icon: <PersonIcon />, path: '/admin/users' },
       { title: 'Departments', icon: <DepartmentIcon />, path: '/admin/departments' },
       { title: 'Security', icon: <SecuritySettingsIcon />, path: '/admin/security' },
@@ -279,20 +273,23 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
           onClick={() => handleNavigation('/dashboard')}
           sx={{
             borderRadius: 0,
-            background: isCurrentPath('/dashboard') 
-              ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
-              : 'transparent',
-            color: isCurrentPath('/dashboard') ? 'white' : theme.palette.text.primary,
             '&:hover': {
-              background: alpha(theme.palette.primary.main, 0.1),
+              background: alpha(theme.palette.primary.main, 0.08),
             },
             transition: 'all 0.2s ease',
           }}
         >
-          <ListItemIcon sx={{ color: 'inherit', minWidth: drawerOpen ? 40 : 0 }}>
+          <ListItemIcon sx={{ color: theme.palette.text.secondary, minWidth: drawerOpen ? 40 : 0 }}>
             <DashboardIcon />
           </ListItemIcon>
-          {drawerOpen && <ListItemText primary="Dashboard" />}
+          {drawerOpen && (
+            <ListItemText 
+              primary="Dashboard"
+              primaryTypographyProps={{
+                fontWeight: isCurrentPath('/dashboard') ? 700 : 400,
+              }}
+            />
+          )}
         </ListItemButton>
       </Box>
 
@@ -330,19 +327,13 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
                   sx={{
                     borderRadius: 0,
                     mb: 0.5,
-                    background: isModuleActive
-                      ? `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
-                      : 'transparent',
-                    color: isModuleActive ? 'white' : theme.palette.text.primary,
                     '&:hover': {
-                      background: isModuleActive
-                        ? `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`
-                        : alpha(theme.palette.primary.main, 0.08),
+                      background: alpha(theme.palette.primary.main, 0.08),
                     },
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  <ListItemIcon sx={{ color: 'inherit', minWidth: drawerOpen ? 40 : 0 }}>
+                  <ListItemIcon sx={{ color: theme.palette.text.secondary, minWidth: drawerOpen ? 40 : 0 }}>
                     {module.icon}
                   </ListItemIcon>
                   {drawerOpen && (
@@ -350,7 +341,7 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
                       <ListItemText 
                         primary={module.title}
                         primaryTypographyProps={{
-                          fontWeight: isModuleActive ? 600 : 500,
+                          fontWeight: isModuleActive ? 700 : 500,
                           fontSize: '0.9rem',
                         }}
                       />
@@ -386,10 +377,9 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
                             ml: 2,
                             mb: 0.5,
                             '&.Mui-selected': {
-                              backgroundColor: alpha(theme.palette.primary.main, 0.12),
-                              borderLeft: `3px solid ${theme.palette.primary.main}`,
+                              backgroundColor: 'transparent',
                               '&:hover': {
-                                backgroundColor: alpha(theme.palette.primary.main, 0.16),
+                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
                               },
                             },
                             '&:hover': {
@@ -404,7 +394,7 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
                             primary={item.title}
                             primaryTypographyProps={{
                               fontSize: '0.85rem',
-                              fontWeight: isCurrentPath(item.path) ? 600 : 400,
+                              fontWeight: isCurrentPath(item.path) ? 700 : 400,
                             }}
                           />
                         </ListItemButton>

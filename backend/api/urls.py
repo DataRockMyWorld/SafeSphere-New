@@ -27,6 +27,7 @@ from api.views import (
     RecordViewSet,
     # Document Dashboard
     DocumentDashboardAPIView,
+    DocumentReviewScheduleAPIView,
     # Audit Management Views
     AuditTypeListView, AuditChecklistTemplateListView, AuditChecklistTemplateDetailView,
     AuditScoringCriteriaListView, AuditScoreCalculationView, AuditFindingPDFReportView,
@@ -110,6 +111,7 @@ urlpatterns = [
     path('documents/<uuid:pk>/ops-review/', OpsReviewAPIView.as_view(), name='document-ops-review'),
     path('documents/<uuid:pk>/md-approval/', MDApprovalAPIView.as_view(), name='document-md-approval'),
     path('documents/dashboard/', DocumentDashboardAPIView.as_view(), name='document-dashboard'),
+    path('documents/review-schedule/', DocumentReviewScheduleAPIView.as_view(), name='document-review-schedule'),
     path('legals/categories/', LawCategoryListCreateAPIView.as_view(), name='lawcategory-list-create'),
     path('legals/categories/<int:pk>/', LawCategoryRetrieveUpdateDestroyAPIView.as_view(), name='lawcategory-detail'),
     path('legals/resources/', LawResourceListCreateAPIView.as_view(), name='lawresource-list-create'),
