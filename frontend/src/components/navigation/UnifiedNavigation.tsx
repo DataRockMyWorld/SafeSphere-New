@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -19,138 +19,69 @@ import {
   alpha,
   Collapse,
   Divider,
+  Tooltip,
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
-  Description as DocumentIcon,
-  Gavel as LegalIcon,
-  Engineering as PPEIcon,
-  AdminPanelSettings as AdminIcon,
   AccountCircle,
   Menu as MenuIcon,
-  Security as SecurityIcon,
-  History as HistoryIcon,
-  CheckCircleOutline as ApprovalIcon,
-  Assignment as AssignmentIcon,
-  Archive as RecordsIcon,
-  LowPriority as ChangeRequestIcon,
-  Scale as LegalScaleIcon,
-  Policy as PolicyIcon,
-  Inventory as InventoryIcon,
-  Settings as SettingsIcon,
-  Person as PersonIcon,
   ExpandMore as ExpandMoreIcon,
   ChevronRight as ChevronRightIcon,
-  LibraryBooks as LibraryIcon,
-  ShoppingCart as PurchasesIcon,
-  AssignmentReturn as ReturnsIcon,
-  ReportProblem as DamageReportsIcon,
-  LocalShipping as VendorsIcon,
-  Assignment as RequestsIcon,
-  AssignmentInd as IssuanceIcon,
-  Inventory2 as StockIcon,
-  BusinessCenter as DepartmentIcon,
-  VpnKey as SecuritySettingsIcon,
-  Tune as SystemSettingsIcon,
-  Schedule as ScheduleIcon,
-  FindInPage as FindingsIcon,
-  AssignmentTurnedIn as CAPAIcon,
-  TableChart as AuditTableIcon,
-  Assessment as ReportIcon,
+  Settings as SettingsIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../NotificationBell';
 import logo from '../../assets/logo.png';
+import {
+  FIXED_NAV_ITEMS,
+  SIDEBAR_GROUPS,
+  GROUP_SUBITEMS,
+  SIDEBAR_STORAGE_KEY,
+  DEFAULT_EXPANDED_GROUPS,
+  canSeeItem,
+  getSubitemsKey,
+} from './sidebarConfig';
 
-const DRAWER_WIDTH = 240;
-const COLLAPSED_DRAWER_WIDTH = 80;
+const DRAWER_WIDTH = 260;
+const COLLAPSED_DRAWER_WIDTH = 72;
 
-// All available modules
-const ALL_MODULES = [
-  {
-    id: 'document-management',
-    title: 'Document Hub',
-    icon: <DocumentIcon />,
-    path: '/document-management',
-    items: [
-      { title: 'Library', icon: <LibraryIcon />, path: '/document-management/library' },
-      { title: 'Records', icon: <RecordsIcon />, path: '/document-management/records' },
-      { title: 'Document Matrix', icon: <ReportIcon />, path: '/document-management/matrix' },
-      { title: 'Review Schedule', icon: <ScheduleIcon />, path: '/document-management/review-schedule' },
-      { title: 'Change Requests', icon: <ChangeRequestIcon />, path: '/document-management/change-request-management' },
-      { title: 'Approvals', icon: <ApprovalIcon />, path: '/document-management/approvals' },
-    ],
-  },
-  {
-    id: 'compliance',
-    title: 'Compliance',
-    icon: <LegalIcon />,
-    path: '/compliance',
-    items: [
-      { title: 'Obligations', icon: <LegalScaleIcon />, path: '/compliance/register', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Annual Review', icon: <HistoryIcon />, path: '/compliance/review', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Calendar', icon: <ScheduleIcon />, path: '/compliance/calendar', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Evidence', icon: <DocumentIcon />, path: '/compliance/evidence', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Law Library', icon: <LibraryIcon />, path: '/compliance/library' }, // Available to all users (read-only)
-      { title: 'Change Tracker', icon: <PolicyIcon />, path: '/compliance/tracker', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-    ],
-  },
-  {
-    id: 'ppe',
-    title: 'PPE Management',
-    icon: <PPEIcon />,
-    path: '/ppe',
-    items: [
-      { title: 'PPE Register', icon: <AssignmentIcon />, path: '/ppe/register', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Stock Position', icon: <StockIcon />, path: '/ppe/stock-position', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Inventory', icon: <InventoryIcon />, path: '/ppe/inventory', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Purchases', icon: <PurchasesIcon />, path: '/ppe/purchases', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Vendors', icon: <VendorsIcon />, path: '/ppe/vendors', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Requests', icon: <RequestsIcon />, path: '/ppe/requests' }, // Available to all users - can make requests
-      { title: 'Issuance', icon: <IssuanceIcon />, path: '/ppe/issuance', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Returns', icon: <ReturnsIcon />, path: '/ppe/returns', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-      { title: 'Damage Reports', icon: <DamageReportsIcon />, path: '/ppe/damage-reports' }, // Available to all users - can report damage
-      { title: 'Settings', icon: <SettingsIcon />, path: '/ppe/settings', requiresRole: ['HSSE MANAGER', 'ADMIN'] },
-    ],
-  },
-  {
-    id: 'audit',
-    title: 'Audit Management',
-    icon: <AssignmentIcon />,
-    path: '/audit',
-    requiresRole: ['HSSE MANAGER', 'ADMIN'], // Entire module restricted to HSSE Manager/Admin
-    items: [
-      { title: 'Audit Planner', icon: <ScheduleIcon />, path: '/audit/planner' },
-      { title: 'Findings', icon: <FindingsIcon />, path: '/audit/findings' },
-      { title: 'Management Review', icon: <AssignmentIcon />, path: '/audit/management-review' },
-      { title: 'CAPAs', icon: <CAPAIcon />, path: '/audit/capas' },
-      { title: 'Audit Table', icon: <AuditTableIcon />, path: '/audit/table' },
-      { title: 'Reports', icon: <ReportIcon />, path: '/audit/reports' },
-    ],
-  },
-  {
-    id: 'risk',
-    title: 'Risk Management',
-    icon: <AssignmentIcon />,
-    path: '/risks',
-    items: [
-      { title: 'Risk Matrix', icon: <DashboardIcon />, path: '/risks/matrix' }, // Available to all users (read-only)
-      { title: 'Risk Register', icon: <AssignmentIcon />, path: '/risks/register' }, // Available to all users (read-only)
-    ],
-  },
-  {
-    id: 'admin',
-    title: 'Admin Panel',
-    icon: <AdminIcon />,
-    path: '/admin',
-    items: [
-      { title: 'Users', icon: <PersonIcon />, path: '/admin/users' },
-      { title: 'Departments', icon: <DepartmentIcon />, path: '/admin/departments' },
-      { title: 'Security', icon: <SecuritySettingsIcon />, path: '/admin/security' },
-      { title: 'Settings', icon: <SystemSettingsIcon />, path: '/admin/settings' },
-    ],
-  },
-];
+function loadExpandedGroups(): string[] {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as string[];
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_EXPANDED_GROUPS;
+}
+
+function saveExpandedGroups(ids: string[]) {
+  try {
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // ignore
+  }
+}
+
+/** Resolve current section title for navbar breadcrumb */
+function getBreadcrumbLabel(pathname: string): string {
+  if (pathname === '/dashboard') return 'Dashboard';
+  if (pathname.startsWith('/report-incident')) return 'Report Incident';
+  if (pathname.startsWith('/incidents')) return 'Incidents & Near Misses';
+  if (pathname.startsWith('/inspections')) return 'Inspections';
+  if (pathname.startsWith('/objectives')) return 'Objectives & KPIs';
+  if (pathname.startsWith('/trends')) return 'Trends';
+  if (pathname.startsWith('/document-management')) return 'Documents';
+  if (pathname.startsWith('/compliance')) return 'Compliance';
+  if (pathname.startsWith('/risks')) return 'Risk';
+  if (pathname.startsWith('/audit')) return 'Audits';
+  if (pathname.startsWith('/ppe')) return 'PPE';
+  if (pathname.startsWith('/admin')) return 'Administration';
+  return 'SafeSphere';
+}
 
 interface UnifiedNavigationProps {
   children: React.ReactNode;
@@ -163,25 +94,60 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
+  const userRole = (user?.position ?? '').toUpperCase();
+  const isAdmin = Boolean(user?.is_superuser);
+
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
-  const [expandedModules, setExpandedModules] = useState<string[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(loadExpandedGroups);
+  const [expandedGroupItems, setExpandedGroupItems] = useState<Record<string, boolean>>({});
 
-  // Find current module based on path
-  const getCurrentModule = () => {
-    return ALL_MODULES.find(module => location.pathname.startsWith(module.path));
-  };
+  const visibleGroups = useMemo(
+    () =>
+      SIDEBAR_GROUPS.filter(
+        (g) => g.id !== 'administration' || isAdmin
+      ),
+    [isAdmin]
+  );
 
-  const activeModule = getCurrentModule();
-
-  // Auto-expand current module
+  // Auto-expand group and parent item that contain the current path
   React.useEffect(() => {
-    if (activeModule && !expandedModules.includes(activeModule.id)) {
-      setExpandedModules([activeModule.id]);
+    const path = location.pathname;
+    for (const group of visibleGroups) {
+      for (const item of group.items) {
+        const subKey = getSubitemsKey(group.id, item.path);
+        const subitems = subKey ? GROUP_SUBITEMS[subKey] : null;
+        const pathMatchesItem = path === item.path || (item.path !== '/' && path.startsWith(item.path + '/'));
+        const pathMatchesSub = subitems?.some((s) => path === s.path || (s.path !== '/' && path.startsWith(s.path + '/')));
+        if (pathMatchesItem) {
+          setExpandedGroups((prev) => (prev.includes(group.id) ? prev : [...prev, group.id]));
+          if (subKey) setExpandedGroupItems((prev) => ({ ...prev, [`${group.id}-${item.path}`]: true }));
+          return;
+        }
+        if (pathMatchesSub) {
+          setExpandedGroups((prev) => (prev.includes(group.id) ? prev : [...prev, group.id]));
+          setExpandedGroupItems((prev) => ({ ...prev, [`${group.id}-${item.path}`]: true }));
+          return;
+        }
+      }
     }
-  }, [activeModule]);
+  }, [location.pathname, visibleGroups]);
+
+  const handleGroupToggle = useCallback((groupId: string) => {
+    setExpandedGroups((prev) => {
+      const next = prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId];
+      saveExpandedGroups(next);
+      return next;
+    });
+  }, []);
+
+  const handleGroupItemExpand = useCallback((key: string) => {
+    setExpandedGroupItems((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   const handleDrawerToggle = () => {
     if (isMobile) {
@@ -189,14 +155,6 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
     } else {
       setDrawerOpen(!drawerOpen);
     }
-  };
-
-  const handleModuleExpand = (moduleId: string) => {
-    setExpandedModules(prev =>
-      prev.includes(moduleId)
-        ? prev.filter(id => id !== moduleId)
-        : [...prev, moduleId]
-    );
   };
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -220,35 +178,87 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
     }
   };
 
-  const isCurrentPath = (path: string) => {
-    return location.pathname === path || location.pathname.startsWith(path + '/');
+  const isCurrentPath = (path: string) =>
+    location.pathname === path || (path !== '/' && location.pathname.startsWith(path + '/'));
+
+  const breadcrumbLabel = useMemo(() => getBreadcrumbLabel(location.pathname), [location.pathname]);
+
+  const navButtonSx = {
+    borderRadius: 1,
+    mx: 1,
+    mb: 0.5,
+    '&:hover': { background: alpha(theme.palette.primary.main, 0.08) },
+    '&.Mui-selected': {
+      backgroundColor: alpha(theme.palette.primary.main, 0.12),
+      borderLeft: `3px solid ${theme.palette.primary.main}`,
+      '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.16) },
+    },
+  };
+
+  const renderNavItem = (
+    item: { title: string; path: string; icon: React.ReactNode; requiresRole?: string[] },
+    options: { indent?: boolean; showLabel?: boolean }
+  ) => {
+    if (!canSeeItem(item, userRole, isAdmin)) return null;
+    const { indent = false, showLabel = true } = options;
+    const content = (
+      <ListItemButton
+        onClick={() => handleNavigation(item.path)}
+        selected={isCurrentPath(item.path)}
+        sx={{ ...navButtonSx, pl: indent ? 4 : 2, py: 1.25 }}
+      >
+        <ListItemIcon sx={{ color: 'inherit', minWidth: drawerOpen ? 40 : 0 }}>
+          {item.icon}
+        </ListItemIcon>
+        {drawerOpen && showLabel && (
+          <ListItemText
+            primary={item.title}
+            primaryTypographyProps={{
+              fontSize: '0.875rem',
+              fontWeight: isCurrentPath(item.path) ? 700 : 500,
+            }}
+          />
+        )}
+      </ListItemButton>
+    );
+    if (!drawerOpen) {
+      return (
+        <Tooltip key={item.path} title={item.title} placement="right">
+          {content}
+        </Tooltip>
+      );
+    }
+    return <Box key={item.path}>{content}</Box>;
   };
 
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Header with Logo and Toggle */}
+      {/* Header */}
       <Box
         sx={{
-          p: 2.5,
+          p: 2,
           display: 'flex',
           alignItems: 'center',
           justifyContent: drawerOpen ? 'space-between' : 'center',
-          borderBottom: `1px solid ${alpha('#ffffff', 0.15)}`,
-          minHeight: 72,
-          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-          boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.12)}`,
+          borderBottom: `1px solid ${alpha('#ffffff', 0.12)}`,
+          minHeight: 64,
+          background: theme.palette.primary.main,
+          boxShadow: `0 1px 4px ${alpha(theme.palette.common.black, 0.1)}`,
         }}
       >
         {drawerOpen ? (
           <>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}
+              onClick={() => navigate('/dashboard')}
+            >
               <Box
                 component="img"
                 src={logo}
                 alt="SafeSphere"
                 sx={{
-                  width: 40,
-                  height: 40,
+                  width: 36,
+                  height: 36,
                   borderRadius: '50%',
                   border: `2px solid ${alpha('#ffffff', 0.3)}`,
                 }}
@@ -257,170 +267,134 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
                 SafeSphere
               </Typography>
             </Box>
-            <IconButton onClick={handleDrawerToggle} sx={{ color: 'white' }}>
+            <IconButton onClick={handleDrawerToggle} sx={{ color: 'white' }} aria-label="Toggle sidebar">
               <MenuIcon />
             </IconButton>
           </>
         ) : (
-          <IconButton onClick={handleDrawerToggle} sx={{ color: 'white' }}>
+          <IconButton onClick={handleDrawerToggle} sx={{ color: 'white' }} aria-label="Expand sidebar">
             <Box component="img" src={logo} alt="SafeSphere" sx={{ width: 32, height: 32, borderRadius: '50%' }} />
           </IconButton>
         )}
       </Box>
 
-      {/* Dashboard Button */}
-      <Box sx={{ p: 2 }}>
-        <ListItemButton
-          onClick={() => handleNavigation('/dashboard')}
-          sx={{
-            borderRadius: 0,
-            '&:hover': {
-              background: alpha(theme.palette.primary.main, 0.08),
-            },
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <ListItemIcon sx={{ color: theme.palette.text.secondary, minWidth: drawerOpen ? 40 : 0 }}>
-            <DashboardIcon />
-          </ListItemIcon>
-          {drawerOpen && (
-            <ListItemText 
-              primary="Dashboard"
-              primaryTypographyProps={{
-                fontWeight: isCurrentPath('/dashboard') ? 700 : 400,
-              }}
-            />
-          )}
-        </ListItemButton>
+      {/* Fixed items: Dashboard, Report Incident, My Actions (always visible; when collapsed, icon + tooltip) */}
+      <Box sx={{ px: 1, pt: 2 }}>
+        {FIXED_NAV_ITEMS.map((item) => {
+          if (!canSeeItem(item, userRole, isAdmin)) return null;
+          const content = (
+            <ListItemButton
+              key={item.path}
+              onClick={() => handleNavigation(item.path)}
+              selected={isCurrentPath(item.path)}
+              sx={navButtonSx}
+            >
+              <ListItemIcon sx={{ color: 'inherit', minWidth: drawerOpen ? 40 : 0 }}>
+                {item.icon}
+              </ListItemIcon>
+              {drawerOpen && (
+                <ListItemText
+                  primary={item.title}
+                  primaryTypographyProps={{
+                    fontWeight: isCurrentPath(item.path) ? 700 : 500,
+                    fontSize: '0.9rem',
+                  }}
+                />
+              )}
+            </ListItemButton>
+          );
+          if (!drawerOpen) {
+            return (
+              <Tooltip key={item.path} title={item.title} placement="right">
+                <span>{content}</span>
+              </Tooltip>
+            );
+          }
+          return <React.Fragment key={item.path}>{content}</React.Fragment>;
+        })}
       </Box>
 
-      <Divider />
+      <Divider sx={{ my: 2 }} />
 
-      {/* Modules Navigation */}
-      <Box sx={{ flex: 1, overflow: 'auto', py: 2 }}>
-        <List sx={{ px: 2 }}>
-          {ALL_MODULES
-            .filter((module: any) => {
-              // Filter entire modules based on role requirements
-              if (!module.requiresRole) return true; // No role requirement, show to all
-              const userRole = user?.position?.toUpperCase() || '';
-              const isAdmin = user?.is_superuser || false;
-              return (
-                module.requiresRole.includes(userRole) ||
-                (isAdmin && module.requiresRole.includes('ADMIN'))
-              );
-            })
-            .map((module) => {
-            const isExpanded = expandedModules.includes(module.id);
-            const isModuleActive = activeModule?.id === module.id;
+      {/* Collapsible groups (hidden when sidebar collapsed to keep focus on Dashboard / Report Incident) */}
+      {drawerOpen && (
+        <Box sx={{ flex: 1, overflow: 'auto', px: 1, pb: 2 }}>
+          {visibleGroups.map((group) => {
+            const isGroupExpanded = expandedGroups.includes(group.id);
+            const visibleItems = group.items.filter((item) => canSeeItem(item, userRole, isAdmin));
+            if (visibleItems.length === 0) return null;
 
             return (
-              <Box key={module.id} sx={{ mb: 1 }}>
-                {/* Module Header */}
+              <Box key={group.id} sx={{ mb: 1 }}>
                 <ListItemButton
-                  onClick={() => {
-                    if (drawerOpen) {
-                      handleModuleExpand(module.id);
-                    } else {
-                      handleNavigation(module.path);
-                    }
-                  }}
+                  onClick={() => handleGroupToggle(group.id)}
                   sx={{
-                    borderRadius: 0,
-                    mb: 0.5,
-                    '&:hover': {
-                      background: alpha(theme.palette.primary.main, 0.08),
-                    },
-                    transition: 'all 0.2s ease',
+                    ...navButtonSx,
+                    py: 1,
                   }}
                 >
-                  <ListItemIcon sx={{ color: theme.palette.text.secondary, minWidth: drawerOpen ? 40 : 0 }}>
-                    {module.icon}
+                  <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}>
+                    {isGroupExpanded ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
                   </ListItemIcon>
-                  {drawerOpen && (
-                    <>
-                      <ListItemText 
-                        primary={module.title}
-                        primaryTypographyProps={{
-                          fontWeight: isModuleActive ? 700 : 500,
-                          fontSize: '0.9rem',
-                        }}
-                      />
-                      {isExpanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
-                    </>
-                  )}
+                  <ListItemText
+                    primary={group.label}
+                    primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                  />
                 </ListItemButton>
+                <Collapse in={isGroupExpanded} timeout="auto" unmountOnExit>
+                  <List disablePadding>
+                    {visibleItems.map((item) => {
+                      const subKey = getSubitemsKey(group.id, item.path);
+                      const subitems = subKey ? GROUP_SUBITEMS[subKey] : null;
+                      const hasSubitems = subitems && subitems.filter((s) => canSeeItem(s, userRole, isAdmin)).length > 0;
+                      const itemExpandKey = `${group.id}-${item.path}`;
+                      const isItemExpanded = expandedGroupItems[itemExpandKey];
 
-                {/* Module Items - Only show when drawer is open and module is expanded */}
-                {drawerOpen && (
-                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                    <List component="div" disablePadding>
-                      {module.items
-                        .filter((item: any) => {
-                          // Filter items based on role requirements
-                          if (!item.requiresRole) return true; // No role requirement, show to all
-                          const userRole = user?.position?.toUpperCase() || '';
-                          const isAdmin = user?.is_superuser || false;
-                          return (
-                            item.requiresRole.includes(userRole) ||
-                            (isAdmin && item.requiresRole.includes('ADMIN'))
-                          );
-                        })
-                        .map((item: any) => (
-                        <ListItemButton
-                          key={item.path}
-                          onClick={() => handleNavigation(item.path)}
-                          selected={isCurrentPath(item.path)}
-                          sx={{
-                            pl: 4,
-                            py: 1,
-                            borderRadius: 0,
-                            ml: 2,
-                            mb: 0.5,
-                            '&.Mui-selected': {
-                              backgroundColor: 'transparent',
-                              '&:hover': {
-                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                              },
-                            },
-                            '&:hover': {
-                              backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                            },
-                          }}
-                        >
-                          <ListItemIcon sx={{ minWidth: 32, color: theme.palette.text.secondary }}>
-                            {item.icon}
-                          </ListItemIcon>
-                          <ListItemText 
-                            primary={item.title}
-                            primaryTypographyProps={{
-                              fontSize: '0.85rem',
-                              fontWeight: isCurrentPath(item.path) ? 700 : 400,
-                            }}
-                          />
-                        </ListItemButton>
-                      ))}
-                    </List>
-                  </Collapse>
-                )}
+                      if (hasSubitems && subitems) {
+                        const visibleSub = subitems.filter((s) => canSeeItem(s, userRole, isAdmin));
+                        return (
+                          <Box key={item.path}>
+                            <ListItemButton
+                              onClick={() => handleGroupItemExpand(itemExpandKey)}
+                              sx={{ ...navButtonSx, pl: 3, py: 0.75 }}
+                            >
+                              <ListItemIcon sx={{ minWidth: 32, color: 'inherit' }}>
+                                {item.icon}
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={item.title}
+                                primaryTypographyProps={{ fontSize: '0.85rem' }}
+                              />
+                              {isItemExpanded ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+                            </ListItemButton>
+                            <Collapse in={isItemExpanded} timeout="auto" unmountOnExit>
+                              <List disablePadding>
+                                {visibleSub.map((sub) => renderNavItem(sub, { indent: true }))}
+                              </List>
+                            </Collapse>
+                          </Box>
+                        );
+                      }
+                      return renderNavItem(item, { indent: true });
+                    })}
+                  </List>
+                </Collapse>
               </Box>
             );
           })}
-        </List>
-      </Box>
+        </Box>
+      )}
 
       <Divider />
 
-      {/* User Profile */}
-      <Box sx={{ p: 2 }}>
+      {/* User profile */}
+      <Box sx={{ p: 1.5 }}>
         <ListItemButton
           onClick={handleUserMenuOpen}
           sx={{
-            borderRadius: 0,
+            borderRadius: 1,
             background: alpha(theme.palette.primary.main, 0.08),
-            '&:hover': {
-              background: alpha(theme.palette.primary.main, 0.12),
-            },
+            '&:hover': { background: alpha(theme.palette.primary.main, 0.12) },
           }}
         >
           <ListItemIcon sx={{ minWidth: drawerOpen ? 40 : 0 }}>
@@ -440,7 +414,7 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
             <ListItemText
               primary={`${user?.first_name || 'User'} ${user?.last_name || ''}`}
               secondary={user?.email}
-              primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 600 }}
+              primaryTypographyProps={{ fontSize: '0.85rem', fontWeight: 600 }}
               secondaryTypographyProps={{ fontSize: '0.75rem' }}
             />
           )}
@@ -451,14 +425,11 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
 
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>
-      {/* Sidebar Drawer */}
       <Drawer
         variant={isMobile ? 'temporary' : 'permanent'}
         open={isMobile ? mobileOpen : true}
         onClose={handleDrawerToggle}
-        ModalProps={{
-          keepMounted: true,
-        }}
+        ModalProps={{ keepMounted: true }}
         sx={{
           width: drawerOpen ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH,
           flexShrink: 0,
@@ -480,23 +451,19 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
         {drawerContent}
       </Drawer>
 
-      {/* Main Content Area */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           display: 'flex',
           flexDirection: 'column',
-          width: { 
-            md: `calc(100% - ${drawerOpen ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH}px)` 
-          },
+          width: { md: `calc(100% - ${drawerOpen ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH}px)` },
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
         }}
       >
-        {/* Top App Bar */}
         <AppBar
           position="static"
           elevation={0}
@@ -508,35 +475,18 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
         >
           <Toolbar sx={{ minHeight: '52px !important', px: { xs: 1.5, sm: 2.5 } }}>
             {isMobile && (
-              <IconButton
-                onClick={handleDrawerToggle}
-                edge="start"
-                sx={{ mr: 2, color: theme.palette.text.primary }}
-              >
+              <IconButton onClick={handleDrawerToggle} edge="start" sx={{ mr: 2, color: theme.palette.text.primary }} aria-label="Menu">
                 <MenuIcon />
               </IconButton>
             )}
-            
-            {/* Breadcrumb */}
-            {activeModule && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', color: theme.palette.primary.main }}>
-                  {activeModule.icon}
-                </Box>
-                <Typography variant="h6" sx={{ color: theme.palette.text.primary, fontWeight: 600 }}>
-                  {activeModule.title}
-                </Typography>
-              </Box>
-            )}
-
+            <Typography variant="h6" sx={{ color: theme.palette.text.primary, fontWeight: 600 }}>
+              {breadcrumbLabel}
+            </Typography>
             <Box sx={{ flexGrow: 1 }} />
-
-            {/* Notification Bell */}
             <NotificationBell />
           </Toolbar>
         </AppBar>
 
-        {/* Page Content */}
         <Box
           sx={{
             flex: 1,
@@ -549,18 +499,12 @@ const UnifiedNavigation: React.FC<UnifiedNavigationProps> = ({ children }) => {
         </Box>
       </Box>
 
-      {/* User Menu */}
       <Menu
         anchorEl={userMenuAnchor}
         open={Boolean(userMenuAnchor)}
         onClose={handleUserMenuClose}
         PaperProps={{
-          sx: {
-            mt: 1,
-            minWidth: 200,
-            borderRadius: 0,
-            boxShadow: theme.shadows[8],
-          },
+          sx: { mt: 1, minWidth: 200, borderRadius: 1, boxShadow: theme.shadows[8] },
         }}
       >
         <MenuItem onClick={() => { handleUserMenuClose(); navigate('/profile'); }}>

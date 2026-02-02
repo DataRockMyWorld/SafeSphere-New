@@ -25,7 +25,6 @@ import { AdminProvider } from './context/AdminContext';
 import { PPEPermissionProvider } from './context/PPEPermissionContext';
 
 // Lazy load route components for code splitting
-const Home = lazy(() => import('./components/Home'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Login = lazy(() => import('./components/Login'));
 const Register = lazy(() => import('./components/Register'));
@@ -102,6 +101,7 @@ const DepartmentManagement = lazy(() => import('./components/admin/DepartmentMan
 const SecuritySettings = lazy(() => import('./components/admin/SecuritySettings'));
 const SystemSettings = lazy(() => import('./components/admin/SystemSettings'));
 const ProtectedAdminRoute = lazy(() => import('./components/admin/ProtectedAdminRoute'));
+const PlaceholderPage = lazy(() => import('./components/PlaceholderPage'));
 
 // Loading fallback component
 const LoadingFallback: React.FC = () => (
@@ -124,24 +124,24 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#32CD32', // Lime Green
-      light: '#7CFC00', // Lawn Green (lighter lime)
-      dark: '#228B22', // Forest Green (darker lime)
+      main: '#1976d2', // Standard blue
+      light: '#42a5f5',
+      dark: '#1565c0',
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#ADFF2F', // Green Yellow
-      light: '#CCFF66', // Lighter green yellow
-      dark: '#9ACD32', // Yellow Green (darker)
-      contrastText: '#000000',
+      main: '#546e7a', // Blue grey
+      light: '#78909c',
+      dark: '#37474f',
+      contrastText: '#ffffff',
     },
     background: {
-      default: '#f8f9fa',
+      default: '#f5f5f5',
       paper: '#ffffff',
     },
     text: {
-      primary: '#1a237e',
-      secondary: '#455a64',
+      primary: '#212121',
+      secondary: '#616161',
     },
   },
   typography: {
@@ -279,7 +279,7 @@ const theme = createTheme({
           fontSize: '0.875rem',
           letterSpacing: '0.01em',
           '&:hover': {
-            boxShadow: '0 4px 12px rgba(50, 205, 50, 0.25)', // Lime shadow
+            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.2)',
           },
         },
       },
@@ -288,9 +288,9 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 16,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
           '&:hover': {
-            boxShadow: '0 8px 24px rgba(50, 205, 50, 0.12)', // Lime shadow
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
           },
         },
       },
@@ -305,7 +305,8 @@ const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          background: 'linear-gradient(135deg, #32CD32 0%, #ADFF2F 100%)', // Lime gradient
+          background: '#ffffff',
+          color: 'default',
           borderRadius: 0,
         },
       },
@@ -322,7 +323,7 @@ const theme = createTheme({
         root: {
           fontFamily: '"Inter", sans-serif',
           '&:hover': {
-            backgroundColor: 'rgba(50, 205, 50, 0.08)', // Lime hover
+            backgroundColor: 'rgba(25, 118, 210, 0.08)',
           },
         },
       },
@@ -405,10 +406,10 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
-// HomeRedirect component - redirects authenticated users to dashboard
-const HomeRedirect: React.FC = () => {
+// Root redirect: logged in → dashboard, logged out → login (no landing page)
+const RootRedirect: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Home />;
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
 };
 
 // Layout component that conditionally renders Navbar
@@ -421,18 +422,42 @@ const Layout: React.FC = () => {
   const isRiskPage = location.pathname.startsWith('/risks');
   const isAdminPage = location.pathname.startsWith('/admin');
   const isDashboardPage = location.pathname === '/dashboard';
+  const isUnifiedNavPage =
+    location.pathname.startsWith('/report-incident') ||
+    location.pathname.startsWith('/incidents') ||
+    location.pathname.startsWith('/inspections') ||
+    location.pathname.startsWith('/objectives') ||
+    location.pathname.startsWith('/trends');
   const isLoginPage = location.pathname === '/login';
   const isRegisterPage = location.pathname === '/register';
   const isPasswordResetPage = location.pathname.startsWith('/reset-password');
+  const showPublicNavbar =
+    !isDocumentManagement &&
+    !isCompliancePage &&
+    !isPPEPage &&
+    !isAuditPage &&
+    !isRiskPage &&
+    !isAdminPage &&
+    !isDashboardPage &&
+    !isUnifiedNavPage &&
+    !isLoginPage &&
+    !isRegisterPage &&
+    !isPasswordResetPage;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {!isDocumentManagement && !isCompliancePage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && !isRegisterPage && !isPasswordResetPage && <Navbar />}
+      {showPublicNavbar && <Navbar />}
       <Box component="main" sx={{ flexGrow: 1 }}>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
-          <Route path="/" element={<HomeRedirect />} />
-          <Route path="/dashboard" element={<PrivateRoute><UnifiedNavigation currentModule="Dashboard"><Dashboard /></UnifiedNavigation></PrivateRoute>} />
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/dashboard" element={<PrivateRoute><UnifiedNavigation><Dashboard /></UnifiedNavigation></PrivateRoute>} />
+          {/* HSSE sidebar placeholders (design-doc structure) */}
+          <Route path="/report-incident" element={<PrivateRoute><UnifiedNavigation><PlaceholderPage title="Report Incident" description="Quick report for incidents and near misses. Form coming in a future release." /></UnifiedNavigation></PrivateRoute>} />
+          <Route path="/incidents" element={<PrivateRoute><UnifiedNavigation><PlaceholderPage title="Incidents & Near Misses" description="Register and follow-up for incidents and near misses." /></UnifiedNavigation></PrivateRoute>} />
+          <Route path="/inspections" element={<PrivateRoute><UnifiedNavigation><PlaceholderPage title="Inspections" description="Routine checks and inspection records." /></UnifiedNavigation></PrivateRoute>} />
+          <Route path="/objectives" element={<PrivateRoute><UnifiedNavigation><PlaceholderPage title="Objectives & KPIs" description="Performance objectives and key performance indicators." /></UnifiedNavigation></PrivateRoute>} />
+          <Route path="/trends" element={<PrivateRoute><UnifiedNavigation><PlaceholderPage title="Trends" description="Performance trends and analytics." /></UnifiedNavigation></PrivateRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -542,7 +567,7 @@ const Layout: React.FC = () => {
         </Routes>
         </Suspense>
       </Box>
-      {!isDocumentManagement && !isCompliancePage && !isPPEPage && !isAuditPage && !isRiskPage && !isAdminPage && !isDashboardPage && !isLoginPage && <Footer />}
+      {showPublicNavbar && <Footer />}
       <BackToHome />
     </Box>
   );

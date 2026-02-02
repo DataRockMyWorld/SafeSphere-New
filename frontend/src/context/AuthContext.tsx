@@ -49,15 +49,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       setUser(userData);
       
-      // Create welcome notification for first-time users
+      // Create welcome notification for first-time users (optional; backend may not have endpoint yet)
       try {
         const notificationResponse = await axiosInstance.post('/notifications/first-time-login/');
-        if (notificationResponse.data.is_first_time) {
+        if (notificationResponse.data?.is_first_time) {
           console.log('Welcome notification created for first-time user');
         }
       } catch (notificationError: any) {
-        console.error('Failed to create welcome notification:', notificationError);
-        // Don't fail login if notification creation fails
+        if (notificationError?.response?.status !== 404) {
+          console.error('Failed to create welcome notification:', notificationError);
+        }
+        // Don't fail login if notification creation fails or endpoint is missing
       }
     } catch (error: any) {
       console.error('Login failed:', error);

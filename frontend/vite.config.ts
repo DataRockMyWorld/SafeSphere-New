@@ -48,7 +48,7 @@ export default defineConfig({
             './src/components/document/DocumentDetail',
           ],
           'legal-module': [
-            './src/components/legal/LegalLayout',
+            './src/components/legal/ComplianceLayout',
             './src/components/legal/ComplianceDashboard',
             './src/components/legal/ComplianceObligations',
           ],
